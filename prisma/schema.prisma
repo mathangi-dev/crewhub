@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  password        String
+  name            String
+  role            String // VOLUNTEER | ORGANIZER | ADMIN
+  city            String        @default("")
+  skills          String        @default("")
+  interests       String        @default("")
+  availability    String        @default("")
+  bio             String        @default("")
+  orgName         String        @default("")
+  verifyInfo      String        @default("")
+  verified        Boolean       @default(false)
+  approval        String        @default("PENDING") // PENDING | APPROVED | REJECTED (volunteers and organizers)
+  suspended       Boolean       @default(false)
+  termsVersion    String        @default("") // version of the volunteer terms this user agreed to ("" = not yet)
+  termsAcceptedAt DateTime?
+  absences        Int           @default(0) // counted absences (auto-suspended at MAX_ABSENCES, reset when the admin reinstates)
+  // bank details (volunteers get paid here, organizers get refunds here). The account number is stored ENCRYPTED.
+  bankHolder      String        @default("")
+  bankName        String        @default("")
+  bankAccountEnc  String        @default("") // AES-256-GCM encrypted, see lib/bank.ts
+  bankLast4       String        @default("") // only the last 4 digits, safe to show
+  bankIfsc        String        @default("")
+  upiId           String        @default("")
+  upiNumber       String        @default("")
+  latitude        Float?
+  longitude       Float?
+  lastLocationAt  DateTime?
+  notifications   Notification[]
+  events          Event[]
+  applications    Application[]
+  sentTransactions     Transaction[] @relation("SentTransactions")
+  receivedTransactions Transaction[] @relation("ReceivedTransactions")
+}
+
+model Event {
+  id              String         @id @default(cuid())
+  title           String
+  category        String
+  description     String
+  city            String
+  venue           String
+  latitude        Float?
+  longitude       Float?
+  radiusKm        Float          @default(20)
+  locationAddress String         @default("")
+  startsAt        DateTime
+  endsAt          DateTime
+  status          String         @default("PENDING") // DRAFT (not paid yet, invisible) | PENDING | PUBLISHED | REJECTED | CANCELLED
+  crewTotal       Int            @default(0) // total crew pay the organizer funds (INR)
+  commission      Int            @default(0) // platform commission on top of crewTotal (INR)
+  payStatus       String         @default("UNPAID") // UNPAID | PAID | REFUNDED (organizer to admin)
+  paidAt          DateTime?
+  refunded        Int            @default(0) // unused crew money refunded to the organizer by the admin (INR)
+  refundedAt      DateTime?
+  organizer       User           @relation(fields: [organizerId], references: [id])
+  organizerId     String
+  cardImage       String?
+  poster          String?
+  roles           EventRole[]
+  notifications   Notification[]
+  transactions    Transaction[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String?
+  title     String
+  message   String
+  link      String?
+  distance  Float?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model EventRole {
+  id           String        @id @default(cuid())
+  title        String
+  slots        Int
+  skills       String        @default("")
+  pay          Int           @default(0) // INR per person, 0 = unpaid volunteer
+  hours        Float         @default(0) // shift length in hours
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId      String
+  applications Application[]
+}
+
+model Application {
+  id            String    @id @default(cuid())
+  role          EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId        String
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+  status        String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED
+  checkIn       DateTime?
+  checkOut      DateTime?
+  paid          Boolean   @default(false)
+  absent        Boolean   @default(false) // marked absent by the organizer, or automatically after the event
+  absentCounted Boolean   @default(false) // this absence was already added to the volunteer's absence count
+  refunded      Boolean   @default(false) // absent / no check-out: this role's pay was refunded to the organizer
+  rating        Int?
+  payout        Int       @default(0) // amount admin paid this volunteer (INR)
+  paidAt        DateTime?
+  paymentRequestedAt DateTime?
+
+  @@unique([roleId, userId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String
+  targetId   String
+  reason     String
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  type          String    // ORGANIZER_EVENT_PAYMENT | VOLUNTEER_PAYOUT | REFUND
+  amount        Int       // in INR
+  currency      String    @default("INR")
+  fromUserId    String?
+  toUserId      String?
+  eventId       String?
+  applicationId String?
+  reference     String    @default("") // UTR or UPI transaction reference
+  paymentMethod String    @default("UPI") // UPI | BANK_TRANSFER
+  upiId         String    @default("")
+  upiNumber     String    @default("")
+  status        String    @default("SUCCESS") // SUCCESS | PENDING | FAILED
+  note          String    @default("")
+  createdAt     DateTime  @default(now())
+
+  fromUser      User?     @relation("SentTransactions", fields: [fromUserId], references: [id])
+  toUser        User?     @relation("ReceivedTransactions", fields: [toUserId], references: [id])
+  event         Event?    @relation(fields: [eventId], references: [id])
+}
+

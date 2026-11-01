@@ -1,0 +1,2 @@
+export const LOOK: Record<string, [string, string]> = { Concert: ["🎤", "#B62E47,#0D334D"], "Food Festival": ["🍜", "#C2441C,#4A5A2E"], Marathon: ["🏃", "#4A5A2E,#0D334D"], Expo: ["🏢", "#0D334D,#4A5A2E"], Conference: ["💼", "#0D334D,#B62E47"], Cultural: ["🪔", "#B62E47,#C2441C"], "Product Launch": ["🚀", "#C2441C,#0D334D"], Exhibition: ["🖼️", "#4A5A2E,#B62E47"], "New Year": ["🎆", "#0D334D,#C2441C"], "Tech Expo": ["🚗", "#0D334D,#C2441C"] }
+export const look = (c: string) => LOOK[c] || ["✨", "#0D334D,#B62E47"]
