@@ -31,7 +31,11 @@ dev.db
 dev.db-journal
 prisma/*.db
 prisma/*.db-journal
+!prisma/dev.db
+
 
 # OS files
 .DS_Store
 Thumbs.db
+
+.vercel
