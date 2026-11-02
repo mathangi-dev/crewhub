@@ -1,6 +1,6 @@
 "use server"
 import { writeFile, mkdir } from "fs/promises"; import path from "path"; import { randomUUID } from "crypto"; import bcrypt from "bcryptjs"; import { redirect } from "next/navigation"; import { cookies } from "next/headers"; import { revalidatePath } from "next/cache"
-import { db } from "@/lib/db"; import { me, need, setSession } from "@/lib/auth"; import { crewOf, commissionOf, accepted } from "@/lib/money"; import { encrypt } from "@/lib/bank"; import { TERMS_VERSION } from "@/lib/terms"; import { payState, unusedOf } from "@/lib/payroll"
+import { db } from "@/lib/db"; import { me, need, setSession } from "@/lib/auth"; import { crewOf, commissionOf, accepted, attended } from "@/lib/money"; import { encrypt } from "@/lib/bank"; import { TERMS_VERSION } from "@/lib/terms"; import { payState, unusedOf } from "@/lib/payroll"
 import { dispatchNearbyEventNotifications, notifyAdmins, notifyUser } from "@/lib/notifications";
 import { getCityCoordinates, getVenueCoordinates } from "@/lib/geo";
 import { ADMIN_UPI_ID, ADMIN_UPI_NUMBER, generateUTR } from "@/lib/payment";
@@ -333,7 +333,7 @@ export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
   await log(a.id, `${kind}:${e.title}`); revalidatePath("/", "layout")
 }
 const payable = (id: string) => db.event.findUnique({ where: { id }, include: { roles: { include: { applications: { include: { user: true } } } } } })
-const open = (e: any) => !!e && e.payStatus === "PAID" && e.status === "PUBLISHED" && e.endsAt <= new Date()
+const open = (e: any) => !!e && e.payStatus === "PAID" && (e.endsAt <= new Date() || accepted(e).some(({ a }) => attended(a)))
 // who is owed money: accepted + checked in AND checked out + paid role + bank details saved + not paid yet. Absent volunteers are never in this list.
 const owed = (e: any) => accepted(e).filter(({ a, r }) => payState(a, r, true) === "DUE")
 // admin pays every eligible volunteer of an ended event (each gets the pay of their own role)
@@ -346,7 +346,7 @@ export async function payoutAll(eventId: string) {
     if (res.count) {
       n++; sum += r.pay
 
-      // Safe transaction record
+      // Safe transaction record via YouPI-PG Gateway
       await db.transaction.create({
         data: {
           type: "VOLUNTEER_PAYOUT",
@@ -357,24 +357,24 @@ export async function payoutAll(eventId: string) {
           eventId: e.id,
           applicationId: x.id,
           reference: utr,
-          paymentMethod: "UPI",
+          paymentMethod: "YOUPI_PG",
           upiNumber: x.user?.upiNumber || "",
           upiId: x.user?.upiId || "",
           status: "SUCCESS",
-          note: `Bulk payout for role "${r.title}" in event "${e.title}"`
+          note: `Bulk payout of ₹${r.pay} via YouPI-PG Gateway to ${x.user?.name} for role "${r.title}" in event "${e.title}"`
         }
       })
 
       await notifyUser({
         userId: x.userId,
         eventId: e.id,
-        title: `💰 Payment Received: ₹${r.pay}`,
-        message: `Your payout of ₹${r.pay} for role "${r.title}" in event "${e.title}" has been successfully transferred via UPI (UTR: ${utr})!`,
+        title: `💰 Salary Payout Received: ₹${r.pay} via YouPI-PG`,
+        message: `Your payout of ₹${r.pay} for role "${r.title}" in "${e.title}" has been successfully transferred to your UPI (${x.user?.upiNumber || x.user?.upiId || "Bank"}) via YouPI Payment Gateway (UTR: ${utr})!`,
         link: `/volunteer/payments`,
       }).catch(console.error)
     }
   }
-  if (n) await log(a.id, `payout-all:${e.title}:${n} volunteers:${sum}`)
+  if (n) await log(a.id, `youpi-bulk-payout:${e.title}:${n} volunteers:${sum}`)
   revalidatePath("/", "layout")
 }
 export async function payoutOne(appId: string) {

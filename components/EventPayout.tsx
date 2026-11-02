@@ -80,10 +80,10 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
             >
               <div>
                 <b style={{ fontSize: "1.05rem", color: "#065f46" }}>
-                  ⚡ Bulk Payments Module ({due.length} Volunteers Verified)
+                  ⚡ YouPI-PG Bulk Payments Module ({due.length} Volunteers Verified)
                 </b>
                 <div className="mute" style={{ fontSize: "0.84rem", color: "#1e293b", marginTop: "2px" }}>
-                  Attendance verified. Payout total: <b>{inr(dueSum)}</b> via Bank & UPI.
+                  Attendance verified. Disbursing <b>{inr(dueSum)}</b> directly to volunteer UPI accounts via YouPI-PG Gateway.
                 </div>
               </div>
 
@@ -101,22 +101,23 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                   }}
                   title="Download complete CSV with UPI Numbers, UPI IDs, Account Numbers & IFSC"
                 >
-                  📥 Required Bank & UPI CSV
+                  📥 Download UPI Roster CSV
                 </a>
 
                 <form action={payoutAll.bind(null, e.id)}>
                   <button
                     disabled={!ready}
                     style={{
-                      background: "#059669",
+                      background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
                       color: "#fff",
                       fontWeight: 700,
-                      padding: "9px 18px",
+                      padding: "10px 20px",
                       borderRadius: "8px",
-                      boxShadow: "0 4px 12px rgba(5,150,105,0.25)",
+                      boxShadow: "0 4px 14px rgba(5,150,105,0.3)",
+                      cursor: ready ? "pointer" : "not-allowed",
                     }}
                   >
-                    ⚡ Pay All {inr(dueSum)} (Bulk Transfer)
+                    ⚡ Pay All {inr(dueSum)} ({due.length} Volunteers via YouPI-PG)
                   </button>
                 </form>
               </div>

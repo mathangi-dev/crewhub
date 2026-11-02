@@ -260,9 +260,9 @@ async function main() {
     cardImage: "/uploads/72b86773-def0-4995-8c04-78666f080e81.png",
     poster: "/uploads/f176863b-28a7-43f1-a530-76201ae2e396.jpg",
     roles: [
-      { title: "Operations Lead (Crew Head)", slots: 2, pay: 25000, hours: 12 },
-      { title: "Registration Management", slots: 3, pay: 1500, hours: 12 },
-      { title: "Visitors Guide", slots: 5, pay: 1000, hours: 12 }
+      { title: "Operations Lead (Crew Head)", slots: 2, pay: 900, hours: 12 },
+      { title: "Registration Management", slots: 3, pay: 750, hours: 12 },
+      { title: "Visitors Guide", slots: 5, pay: 600, hours: 12 }
     ],
     isCompleted: true
   })

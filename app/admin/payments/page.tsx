@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { need } from "@/lib/auth";
 import { Tag, Stats } from "@/components/ui";
 import EventPayout from "@/components/EventPayout";
+import { payoutAll } from "@/app/actions";
 import { inr, when, RATE, accepted, dt } from "@/lib/money";
 import { payState, unusedOf } from "@/lib/payroll";
 
@@ -178,23 +179,156 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
       </div>
 
       <div style={{ marginTop: "32px" }}>
-        <h2>Approved Events History</h2>
-        <p className="mute">Tap an event to see attendance, bank details, and payouts.</p>
-        {all.map((e) => (
-          <Link key={e.id} href={`${base}?id=${e.id}`} className="card row">
-            <div>
-              <b>{e.title}</b> <Tag c={e.payStatus === "PAID" ? "ok" : "bad"}>{e.payStatus}</Tag>
-              <div className="mute">
-                {e.organizer.orgName || e.organizer.name} · {when(e)}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
+          <div>
+            <h2>Approved Events & Bulk Payouts</h2>
+            <p className="mute">
+              Disburse bulk payments to volunteers via YouPI-PG Gateway or manage event attendance.
+            </p>
+          </div>
+          <span className="mute" style={{ fontSize: "0.85rem" }}>
+            {all.length} event{all.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "14px" }}>
+          {all.map((e) => {
+            const r = rows(e);
+            const dueVolunteers = r.filter((x) => x.s === "DUE");
+            const dueSum = dueVolunteers.reduce((n, x) => n + x.r.pay, 0);
+            const paidVolunteers = r.filter((x) => x.s === "PAID");
+            const paidSum = paidVolunteers.reduce((n, x) => n + (x.a.payout || x.r.pay), 0);
+            const noBankVolunteers = r.filter((x) => x.s === "NO_BANK");
+            const isEnded = e.endsAt <= now;
+
+            return (
+              <div
+                key={e.id}
+                className="card"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                  padding: "18px 20px",
+                  borderRadius: "12px",
+                  border: dueSum > 0 ? "1px solid #10b981" : "1px solid var(--border, #e2e8f0)",
+                  background: dueSum > 0 ? "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)" : "inherit"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <Link href={`${base}?id=${e.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                        <b style={{ fontSize: "1.15rem", color: "#0f172a" }}>{e.title}</b>
+                      </Link>
+                      <Tag c={e.payStatus === "PAID" ? "ok" : "bad"}>{e.payStatus}</Tag>
+                      {isEnded ? <Tag c="ok">Completed</Tag> : <Tag c="warn">Live / Upcoming</Tag>}
+                    </div>
+                    <div className="mute" style={{ marginTop: "4px", fontSize: "0.88rem" }}>
+                      Organizer: <b>{e.organizer.orgName || e.organizer.name}</b> · {when(e)} · 📍 {e.city}
+                    </div>
+                    <div style={{ marginTop: "6px", fontSize: "0.85rem", color: "#64748b" }}>
+                      Crew Budget: <b>{inr(e.crewTotal)}</b> · Platform Commission (15%): <b>{inr(e.commission)}</b> · Total: <b>{inr(e.crewTotal + e.commission)}</b>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "right", minWidth: "160px" }}>
+                    <div style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Volunteer Payout
+                    </div>
+                    <b style={{ fontSize: "1.3rem", color: dueSum > 0 ? "#059669" : paidSum > 0 ? "#0f172a" : "#64748b" }}>
+                      {dueSum > 0 ? inr(dueSum) : paidSum > 0 ? inr(paidSum) : "₹0"}
+                    </b>
+                    <div className="mute" style={{ fontSize: "0.78rem", marginTop: "2px" }}>
+                      {dueSum > 0 ? (
+                        <span style={{ color: "#059669", fontWeight: 600 }}>Ready for bulk payout</span>
+                      ) : paidVolunteers.length > 0 ? (
+                        <span style={{ color: "#059669" }}>Disbursed ({paidVolunteers.length} paid)</span>
+                      ) : (
+                        "No payout due"
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bulk Payout Action Row */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    paddingTop: "14px",
+                    borderTop: "1px solid #e2e8f0",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    {dueVolunteers.length > 0 ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#065f46", fontSize: "0.9rem", fontWeight: 600 }}>
+                        <span>⚡</span>
+                        <span>
+                          {dueVolunteers.length} volunteer{dueVolunteers.length === 1 ? "" : "s"} checked out with verified UPI ({inr(dueSum)} total due)
+                        </span>
+                      </div>
+                    ) : paidVolunteers.length > 0 ? (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#059669", fontSize: "0.9rem", fontWeight: 600 }}>
+                        <span>✓</span>
+                        <span>All {paidVolunteers.length} volunteers paid via YouPI-PG Gateway</span>
+                      </div>
+                    ) : (
+                      <span className="mute" style={{ fontSize: "0.85rem" }}>
+                        Attendance awaiting completion or no pending volunteer dues.
+                      </span>
+                    )}
+
+                    {noBankVolunteers.length > 0 && (
+                      <span style={{ fontSize: "0.8rem", color: "#d97706", background: "#fef3c7", padding: "2px 8px", borderRadius: "4px" }}>
+                        ⚠️ {noBankVolunteers.length} missing UPI details
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <Link
+                      href={`${base}?id=${e.id}`}
+                      className="btn"
+                      style={{ fontSize: "0.85rem", padding: "8px 14px", textDecoration: "none" }}
+                    >
+                      View Details & Attendance →
+                    </Link>
+
+                    {dueVolunteers.length > 0 && (
+                      <form action={payoutAll.bind(null, e.id)}>
+                        <button
+                          type="submit"
+                          className="btn"
+                          style={{
+                            background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                            color: "#ffffff",
+                            fontWeight: 700,
+                            padding: "9px 20px",
+                            borderRadius: "8px",
+                            border: "none",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 8px rgba(5, 150, 105, 0.35)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            fontSize: "0.92rem",
+                          }}
+                        >
+                          ⚡ Pay All ({inr(dueSum)} for {dueVolunteers.length} {dueVolunteers.length === 1 ? "Person" : "People"} via YouPI-PG)
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            <span className="mute">
-              Crew {inr(e.crewTotal)} + commission {inr(e.commission)}
-            </span>
-            <b>{inr(e.crewTotal + e.commission)}</b>
-          </Link>
-        ))}
-        {!all.length && <p className="mute">No payments yet.</p>}
+            );
+          })}
+          {!all.length && <p className="card mute">No payments or approved events recorded yet.</p>}
+        </div>
       </div>
     </div>
   );
