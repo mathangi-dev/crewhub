@@ -6,6 +6,7 @@ import EventPayout from "@/components/EventPayout";
 import { payoutAll } from "@/app/actions";
 import { inr, when, RATE, accepted, dt } from "@/lib/money";
 import { payState, unusedOf } from "@/lib/payroll";
+import FinancialReportGenerator from "@/components/FinancialReportGenerator";
 
 export default async function Page({ searchParams: sp }: { searchParams: { id?: string } }) {
   await need("ADMIN");
@@ -67,9 +68,76 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
     },
   });
 
+  // Financial applications for salary payout reporting
+  const paidApps = await db.application.findMany({
+    where: { paid: true },
+    include: {
+      user: { select: { name: true, email: true, upiId: true, upiNumber: true } },
+      role: { select: { title: true, event: { select: { id: true, title: true } } } },
+    },
+  });
+
+  const financialApplications = paidApps.map((a) => ({
+    id: a.id,
+    volunteerName: a.user?.name || "Volunteer",
+    volunteerEmail: a.user?.email || "",
+    upi: a.user?.upiNumber || a.user?.upiId || "",
+    eventTitle: a.role?.event?.title || "Event",
+    eventId: a.role?.event?.id || "",
+    roleTitle: a.role?.title || "Crew",
+    payout: a.payout,
+    paidAt: a.paidAt ? a.paidAt.toISOString() : null,
+  }));
+
+  const financialEvents = all.map((e) => ({
+    id: e.id,
+    title: e.title,
+    city: e.city,
+    category: e.category,
+    organizerName: e.organizer.orgName || e.organizer.name,
+    startsAt: e.startsAt.toISOString(),
+    endsAt: e.endsAt.toISOString(),
+    paidAt: e.paidAt ? e.paidAt.toISOString() : null,
+    refundedAt: e.refundedAt ? e.refundedAt.toISOString() : null,
+    crewTotal: e.crewTotal,
+    commission: e.commission,
+    refunded: e.refunded,
+    payStatus: e.payStatus,
+    rolesCount: e.roles.length,
+    volunteersCount: accepted(e).length,
+  }));
+
+  const financialTransactions = transactions.map((t) => ({
+    id: t.id,
+    type: t.type,
+    amount: t.amount,
+    reference: t.reference,
+    paymentMethod: t.paymentMethod,
+    status: t.status,
+    note: t.note,
+    createdAt: t.createdAt.toISOString(),
+    fromName: t.fromUser?.orgName || t.fromUser?.name || "Admin",
+    toName: t.toUser?.orgName || t.toUser?.name || "Admin",
+    eventTitle: t.event?.title || "",
+  }));
+
   return (
     <div className="compact">
-      {head}
+      <div className="dh">
+        <div>
+          <span className="mute">Admin dashboard</span>
+          <h1>Payments & Safe Transaction Ledger</h1>
+        </div>
+
+        {/* Straight Right Corner: Financial Management Report Generator */}
+        <FinancialReportGenerator
+          events={financialEvents}
+          applications={financialApplications}
+          transactions={financialTransactions}
+          defaultMonth="2026-11"
+          defaultYear="2026"
+        />
+      </div>
       <div className="card">
         <b>Platform fee: {RATE}% of crew pay</b>
       </div>
