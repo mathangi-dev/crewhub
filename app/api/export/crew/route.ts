@@ -96,7 +96,7 @@ export async function GET(req: Request) {
             esc(a.checkIn ? a.checkIn.toLocaleString("en-IN") : "–"),
             esc(a.checkOut ? a.checkOut.toLocaleString("en-IN") : "–"),
             esc(attStatus),
-            esc(a.rating ? `${a.rating} ★` : "Not rated"),
+            esc(a.rating ? `${a.rating}/5` : "Not rated"),
           ].join(",")
         );
       }

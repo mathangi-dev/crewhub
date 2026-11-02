@@ -131,7 +131,7 @@ export default async function AdminPeople({
                 color: "#991b1b",
               }}
             >
-              <b style={{ fontSize: "0.95rem" }}>⚠️ Action Recommended: Volunteer Exceeded Threshold</b>
+              <b style={{ fontSize: "0.95rem" }}>Action Recommended: Volunteer Exceeded Threshold</b>
               <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>
                 This volunteer has accumulated <b>{one.absences} absences</b> (max limit: {MAX_ABSENCES}) or has{" "}
                 <b>{complaints.length} active complaint(s)</b> filed. You can deactivate their account using the button above.
@@ -151,7 +151,7 @@ export default async function AdminPeople({
                 fontSize: "0.88rem",
               }}
             >
-              🔒 <b>Account is currently Deactivated / Suspended.</b> The volunteer cannot apply for new shifts or check in. Click "Reinstate Account" to reset absences and restore access.
+              <b>Account is currently Deactivated / Suspended.</b> The volunteer cannot apply for new shifts or check in. Click "Reinstate Account" to reset absences and restore access.
             </div>
           )}
 
@@ -239,13 +239,13 @@ export default async function AdminPeople({
             <Link key={u.id} href={`${base}?s=${sp.s}&id=${u.id}`} className="card row" style={{ alignItems: "center" }}>
               <div>
                 <b>{u.name}</b> {u.orgName && <span className="mute">({u.orgName})</span>} <Tag c={cls(st(u))}>{LB[st(u)]}</Tag>
-                {hasIssue && <span className="tag bad" style={{ marginLeft: "6px" }}>⚠️ {u.absences} Absences</span>}
+                {hasIssue && <span className="tag bad" style={{ marginLeft: "6px" }}>{u.absences} Absences</span>}
                 <div className="mute">
                   {u.email} · {u.phone ? `${u.phone} · ` : ""}{u.city || "Tamil Nadu"}
                   {role === "VOLUNTEER" && u.skills ? ` · ${u.skills}` : ""}
                 </div>
               </div>
-              <span className="mute" style={{ fontSize: "0.85rem" }}>View details ➔</span>
+              <span className="mute" style={{ fontSize: "0.85rem" }}>View details</span>
             </Link>
           );
         })

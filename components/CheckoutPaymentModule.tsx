@@ -50,7 +50,7 @@ export default function CheckoutPaymentModule({
       {/* YouPI-PG Gateway Banner */}
       <div
         style={{
-          background: "var(--navy)",
+          background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
           padding: "16px 20px",
           color: "#fff",
           display: "flex",
@@ -63,21 +63,21 @@ export default function CheckoutPaymentModule({
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div
             style={{
-              background: "var(--teal)",
-              color: "var(--navy)",
-              fontWeight: 800,
-              fontSize: "0.85rem",
+              background: "#fff",
+              color: "#0284c7",
+              fontWeight: 900,
+              fontSize: "0.88rem",
               padding: "4px 10px",
-              borderRadius: "6px",
+              borderRadius: "8px",
               letterSpacing: "0.5px",
             }}
           >
             YouPI-PG
           </div>
           <div>
-            <b style={{ fontSize: "1.05rem", color: "#ffffff" }}>YouPI Payment Gateway</b>
-            <div style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.75)" }}>
-              Direct Escrow Settlement · Zero Payment Gateway Fee · Instant UTR Verification
+            <b style={{ fontSize: "1.05rem", color: "#f8fafc" }}>YouPI Payment Gateway</b>
+            <div style={{ fontSize: "0.78rem", color: "#e0f2fe" }}>
+              Direct Escrow Settlement · 0% Payment Gateway Fee · Instant UTR Verification
             </div>
           </div>
         </div>
@@ -87,8 +87,8 @@ export default function CheckoutPaymentModule({
             type="button"
             onClick={() => setActiveTab("youpi_intent")}
             style={{
-              background: activeTab === "youpi_intent" ? "#fff" : "rgba(255,255,255,0.15)",
-              color: activeTab === "youpi_intent" ? "var(--navy)" : "#fff",
+              background: activeTab === "youpi_intent" ? "#fff" : "rgba(255,255,255,0.18)",
+              color: activeTab === "youpi_intent" ? "#0284c7" : "#fff",
               border: "none",
               padding: "6px 14px",
               borderRadius: "8px",
@@ -103,8 +103,8 @@ export default function CheckoutPaymentModule({
             type="button"
             onClick={() => setActiveTab("youpi_qr")}
             style={{
-              background: activeTab === "youpi_qr" ? "#fff" : "rgba(255,255,255,0.15)",
-              color: activeTab === "youpi_qr" ? "var(--navy)" : "#fff",
+              background: activeTab === "youpi_qr" ? "#fff" : "rgba(255,255,255,0.18)",
+              color: activeTab === "youpi_qr" ? "#0284c7" : "#fff",
               border: "none",
               padding: "6px 14px",
               borderRadius: "8px",
@@ -136,7 +136,7 @@ export default function CheckoutPaymentModule({
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span className="mute">Admin UPI VPA:</span>{" "}
-                  <code style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "4px" }}>
+                  <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
                     {adminUpiId}
                   </code>
                   <button
@@ -150,11 +150,11 @@ export default function CheckoutPaymentModule({
                 </div>
                 <div>
                   <span className="mute">Admin UPI Number:</span>{" "}
-                  <b style={{ color: "var(--navy)" }}>{adminUpiNumber}</b>
+                  <b style={{ color: "#0284c7" }}>{adminUpiNumber}</b>
                 </div>
                 <div>
                   <span className="mute">Total Escrow Amount:</span>{" "}
-                  <b style={{ color: "var(--navy)", fontSize: "1.15rem" }}>{totalFormatted}</b>{" "}
+                  <b style={{ color: "#16a34a", fontSize: "1.15rem" }}>{totalFormatted}</b>{" "}
                   <span className="mute" style={{ fontSize: "0.78rem" }}>(15% platform fee included)</span>
                 </div>
               </div>
@@ -164,15 +164,16 @@ export default function CheckoutPaymentModule({
                   href={upiLink}
                   className="btn"
                   style={{
-                    background: "var(--navy)",
+                    background: "#0284c7",
                     color: "#fff",
                     fontWeight: 700,
                     padding: "10px 20px",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "8px",
                     textDecoration: "none",
+                    boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)",
                   }}
                 >
                   Open in UPI App (GPay / PhonePe / Paytm / Cred)

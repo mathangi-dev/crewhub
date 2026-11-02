@@ -62,9 +62,9 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
           <div
             className="card"
             style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "16px",
+              background: "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)",
+              border: "1.5px solid #86efac",
+              borderRadius: "14px",
               margin: "16px 0",
               padding: "16px 18px",
             }}
@@ -79,10 +79,10 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
               }}
             >
               <div>
-                <b style={{ fontSize: "1.05rem", color: "var(--navy)" }}>
+                <b style={{ fontSize: "1.05rem", color: "#065f46" }}>
                   YouPI-PG Bulk Payments Module ({due.length} Volunteers Verified)
                 </b>
-                <div className="mute" style={{ fontSize: "0.84rem", color: "var(--slate-gray)", marginTop: "2px" }}>
+                <div className="mute" style={{ fontSize: "0.84rem", color: "#1e293b", marginTop: "2px" }}>
                   Attendance verified. Disbursing <b>{inr(dueSum)}</b> directly to volunteer UPI accounts via YouPI-PG Gateway.
                 </div>
               </div>
@@ -90,12 +90,14 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
                 <a
                   href={`/admin/payouts/csv?id=${e.id}`}
-                  className="btn ghost"
+                  className="btn"
                   download
                   style={{
-                    borderRadius: "10px",
-                    fontSize: "0.88rem",
-                    padding: "8px 14px",
+                    background: "#0284c7",
+                    color: "#fff",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    borderRadius: "8px",
                   }}
                   title="Download complete CSV with UPI Numbers, UPI IDs, Account Numbers & IFSC"
                 >
@@ -105,14 +107,13 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                 <form action={payoutAll.bind(null, e.id)}>
                   <button
                     disabled={!ready}
-                    className="btn"
                     style={{
-                      background: "var(--navy)",
+                      background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
                       color: "#fff",
                       fontWeight: 700,
-                      padding: "9px 18px",
-                      borderRadius: "10px",
-                      fontSize: "0.88rem",
+                      padding: "10px 20px",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 14px rgba(5,150,105,0.3)",
                       cursor: ready ? "pointer" : "not-allowed",
                     }}
                   >
@@ -187,9 +188,9 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                     {x.r.title} · pay <b>{inr(x.r.pay)}</b> · In: <b>{hm(x.a.checkIn)}</b> · Out:{" "}
                     <b>{hm(x.a.checkOut)}</b>
                     {x.a.checkIn && x.a.checkOut ? (
-                      <span style={{ color: "var(--teal)", fontWeight: 700 }}> · Attended</span>
+                      <span style={{ color: "#16a34a", fontWeight: 700 }}> · Attended</span>
                     ) : (
-                      <span style={{ color: "var(--bad)" }}> · Incomplete Attendance</span>
+                      <span style={{ color: "#dc2626" }}> · Incomplete Attendance</span>
                     )}
                   </div>
                   <AdminBank u={x.a.user} />
@@ -205,7 +206,7 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                         href={upiLink}
                         className="btn sm"
                         style={{
-                          background: "var(--navy)",
+                          background: "#059669",
                           color: "#fff",
                           fontWeight: 700,
                           fontSize: "0.76rem",

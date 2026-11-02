@@ -39,7 +39,7 @@ export default async function Page() {
 
       {!bankReady(u) && (
         <p className="card" style={{ borderLeft: "4px solid #b42318" }}>
-          ⚠️ Add your bank/UPI details in your <Link href="/volunteer/profile" style={{ fontWeight: 700, textDecoration: "underline" }}>Profile</Link> to receive payouts. CrewHub cannot disburse your earnings without them.
+          Add your bank/UPI details in your <Link href="/volunteer/profile" style={{ fontWeight: 700, textDecoration: "underline" }}>Profile</Link> to receive payouts. CrewHub cannot disburse your earnings without them.
         </p>
       )}
 
@@ -53,7 +53,7 @@ export default async function Page() {
 
       <div style={{ margin: "16px 0 8px" }}>
         <p className="mute" style={{ fontSize: "0.86rem" }}>
-          💡 <b>Haven't received your payment yet?</b> If your event ended and payout is pending, click <b>"Request Payment"</b> to notify the Admin instantly.
+          <b>Haven't received your payment yet?</b> If your event ended and payout is pending, click <b>"Request Payment"</b> to notify the Admin instantly.
         </p>
       </div>
 
@@ -95,7 +95,7 @@ export default async function Page() {
                     }}
                     title={`Request sent on ${dt(a.paymentRequestedAt)}`}
                   >
-                    ✓ Request Sent
+                    Request Sent
                   </span>
                 ) : (
                   <form action={requestPayment.bind(null, a.id)}>
@@ -113,7 +113,7 @@ export default async function Page() {
                       }}
                       title="Send a payment request alert to Admin"
                     >
-                      Request Payment ✉
+                      Request Payment
                     </button>
                   </form>
                 )

@@ -39,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: { bank?: st
 
       {searchParams.saved && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "10px", padding: "10px 16px", marginBottom: "16px", color: "#065f46" }}>
-          ✓ Profile details updated successfully!
+          Profile details updated successfully!
         </div>
       )}
 

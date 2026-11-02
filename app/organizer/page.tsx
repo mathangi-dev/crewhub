@@ -29,7 +29,7 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
       const crew = (r: any) => r.applications.filter((a: any) => a.status === "ACCEPTED") // only volunteers the admin accepted
       if (!ev) return !events.length ? <p className="card">No events yet. Create one first.</p> : <div className="grid">{events.map(e => {
         const total = e.roles.reduce((n, r) => n + r.slots, 0), filled = e.roles.reduce((n, r) => n + acc(r), 0)
-        return <EventCard key={e.id} href={`/organizer?tab=manage&event=${e.id}`} e={e} badge={label(e)} sub={`${filled}/${total} volunteers · ${filled >= total && total > 0 ? "✓ Full" : `${total - filled} needed`} · ${e.roles.reduce((n, r) => n + crew(r).filter((a: any) => a.checkIn).length, 0)} checked in`} />
+        return <EventCard key={e.id} href={`/organizer?tab=manage&event=${e.id}`} e={e} badge={label(e)} sub={`${filled}/${total} volunteers · ${filled >= total && total > 0 ? "Full" : `${total - filled} needed`} · ${e.roles.reduce((n, r) => n + crew(r).filter((a: any) => a.checkIn).length, 0)} checked in`} />
       })}</div>
       const all = ev.roles.flatMap(crew)
       const totalReq = ev.roles.reduce((n, r) => n + r.slots, 0)
@@ -38,18 +38,18 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
           <div>
             <b>{ev.title}</b> {tag(ev)}
-            {isReqMet && <span className="tag ok" style={{ fontWeight: 700, marginLeft: 6 }}>✓ Requirements Completed</span>}
+            {isReqMet && <span className="tag ok" style={{ fontWeight: 700, marginLeft: 6 }}>Requirements Completed</span>}
             <div className="mute">{ev.venue}, {ev.city} · {when(ev)}</div>
           </div>
           {all.length > 0 && (
             <a href={`/api/export/crew?eventId=${ev.id}`} className="btn" style={{ padding: "8px 18px", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "6px" }} download>
-              <span>📥</span> Download Volunteer Roster (Spreadsheet)
+              Download Volunteer Roster (Spreadsheet)
             </a>
           )}
         </div>
         {isReqMet && (
           <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "10px 16px", margin: "10px 0 14px", color: "#065f46", fontSize: "0.85rem" }}>
-            🎉 <b>All volunteer requirements completed!</b> All {totalReq} crew positions have been filled. You can download the roster containing volunteer names, locations, assigned roles, shift hours, and attendance.
+            <b>All volunteer requirements completed!</b> All {totalReq} crew positions have been filled. You can download the roster containing volunteer names, locations, assigned roles, shift hours, and attendance.
           </div>
         )}
         <Stats items={[[all.length, "Volunteers"], [all.filter((a: any) => a.checkIn).length, "Checked in"], [all.filter((a: any) => a.checkOut).length, "Checked out"], [all.filter((a: any) => absentNow(a, ev)).length, "Absent"]]} />
@@ -73,7 +73,7 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
       return <section key={e.id} className="evc"><div className="row"><div><b>{e.title}</b> {tag(e)}<div className="mute">{e.venue}, {e.city} · {when(e)}</div></div>
       <div className="acts" style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
         <Link href={`/events/${e.id}`} className="btn ghost" style={{ padding: "6px 14px", fontSize: "0.85rem" }}>View Public Card</Link>
-        {rows.length > 0 && <a href={`/api/export/crew?eventId=${e.id}`} className="btn" style={{ padding: "6px 14px", fontSize: "0.85rem", background: "#0284c7" }} download>📥 Attendance CSV</a>}
+        {rows.length > 0 && <a href={`/api/export/crew?eventId=${e.id}`} className="btn" style={{ padding: "6px 14px", fontSize: "0.85rem", background: "#0284c7" }} download>Attendance CSV</a>}
         {e.status === "PENDING" && <form action={cancelEvent.bind(null, e.id)}><button className="bad" style={{ padding: "6px 14px", fontSize: "0.85rem" }}>Cancel</button></form>}
       </div></div>
       {e.roles.map(r => <p key={r.id} className="mute" style={{ margin: "4px 0 0" }}>{r.title} · {hrs(r)} · {acc(r)}/{r.slots} filled</p>)}
@@ -127,7 +127,7 @@ async function ContactAdmin(userId: string, sent?: string) {
     <>
       {sent && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "12px 18px", marginBottom: "18px", color: "#065f46", fontSize: "0.9rem" }}>
-          ✓ <b>Query / Complaint Sent Successfully!</b> The Admin has received your message and will review it promptly. You will get an in-app notification when answered.
+          <b>Query / Complaint Sent Successfully!</b> The Admin has received your message and will review it promptly. You will get an in-app notification when answered.
         </div>
       )}
 
@@ -159,7 +159,7 @@ async function ContactAdmin(userId: string, sent?: string) {
             </div>
 
             <div style={{ marginTop: "6px" }}>
-              <SubmitBtn pendingText="Sending to Admin...">Send to Admin ✉</SubmitBtn>
+              <SubmitBtn pendingText="Sending to Admin...">Send to Admin</SubmitBtn>
             </div>
           </form>
         </div>
@@ -186,7 +186,7 @@ async function ContactAdmin(userId: string, sent?: string) {
 
                   {q.answer ? (
                     <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "10px 14px", marginTop: "8px" }}>
-                      <b style={{ color: "#166534", fontSize: "0.85rem" }}>💬 Admin Response:</b>
+                      <b style={{ color: "#166534", fontSize: "0.85rem" }}>Admin Response:</b>
                       <p style={{ margin: "4px 0 0", color: "#14532d", fontSize: "0.9rem" }}>{q.answer}</p>
                       {q.answeredAt && (
                         <div className="mute" style={{ fontSize: "0.75rem", marginTop: "4px" }}>
@@ -196,7 +196,7 @@ async function ContactAdmin(userId: string, sent?: string) {
                     </div>
                   ) : (
                     <div className="mute" style={{ fontSize: "0.82rem", fontStyle: "italic" }}>
-                      ⏳ Awaiting response from Admin...
+                      Awaiting response from Admin...
                     </div>
                   )}
                 </div>

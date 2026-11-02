@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     // Notify Admin of YouPI-PG webhook verification
     await notifyAdmins({
-      title: `⚡ YouPI-PG Payment Verified: ${targetEvent.title}`,
+      title: `YouPI-PG Payment Verified: ${targetEvent.title}`,
       message: `Organizer "${targetEvent.organizer.orgName || targetEvent.organizer.name}" paid ₹${totalAmount} via YouPI-PG Gateway (UTR: ${referenceUtr}). Ready for your approval.`,
       link: `/admin/events?s=PENDING`,
       eventId: targetEventId,

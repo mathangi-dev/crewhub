@@ -127,7 +127,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
 
             {single.refunded > 0 ? (
               <div style={{ marginTop: "8px", fontSize: "0.85rem", color: "#166534" }}>
-                ✓ {inr(single.refunded)} was refunded to organizer {single.organizer.name} for {absentApps.length} absent or incomplete shifts on {single.refundedAt ? dt(single.refundedAt) : "event completion"}.
+                {inr(single.refunded)} was refunded to organizer {single.organizer.name} for {absentApps.length} absent or incomplete shifts on {single.refundedAt ? dt(single.refundedAt) : "event completion"}.
               </div>
             ) : (
               <p className="mute" style={{ marginTop: "8px", fontSize: "0.85rem" }}>
@@ -212,7 +212,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
 
                   <div style={{ textAlign: "right" }}>
                     <b style={{ fontSize: "1.1rem", color: "#0f172a" }}>{inr(totalEvent)}</b>
-                    <div className="mute" style={{ fontSize: "0.78rem" }}>View Statement ➔</div>
+                    <div className="mute" style={{ fontSize: "0.78rem" }}>View Statement</div>
                   </div>
                 </Link>
               );

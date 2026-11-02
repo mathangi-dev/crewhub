@@ -77,7 +77,7 @@ export default function EventsMapView({ userLat, userLng, events }: Props) {
         });
 
         const userMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map);
-        userMarker.bindPopup("<b>📍 Your Current Location</b>");
+        userMarker.bindPopup("<b>Your Current Location</b>");
         markersGroup.addLayer(userMarker);
       }
 
@@ -101,7 +101,7 @@ export default function EventsMapView({ userLat, userLng, events }: Props) {
 
           const distHtml =
             ev.distance != null
-              ? `<div style="margin: 4px 0; color: #0284c7; font-weight: 700;">📍 ${ev.distance.toFixed(
+              ? `<div style="margin: 4px 0; color: #0284c7; font-weight: 700;">${ev.distance.toFixed(
                   1
                 )} km away ${isNearby ? "(Within 20 km!)" : ""}</div>`
               : "";
@@ -180,7 +180,7 @@ export default function EventsMapView({ userLat, userLng, events }: Props) {
         }}
       >
         <span>
-          🔵 <b>Blue Dot:</b> Your Location &nbsp;·&nbsp; 📍 <b>Pins:</b> Event Venues &nbsp;·&nbsp; ⭕ <b>Circles:</b> 10–20 km notification radius
+          <b>Blue Dot:</b> Your Location &nbsp;·&nbsp; <b>Pins:</b> Event Venues &nbsp;·&nbsp; <b>Circles:</b> 10–20 km notification radius
         </span>
         <span style={{ color: "#059669", fontWeight: 600 }}>
           {events.filter((e) => e.distance != null && e.distance <= (e.radiusKm || 20)).length} events near you!

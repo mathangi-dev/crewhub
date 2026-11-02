@@ -19,12 +19,12 @@ export default async function Page({ searchParams }: { searchParams: { bank?: st
 
       {searchParams.saved && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "10px", padding: "10px 16px", marginBottom: "16px", color: "#065f46" }}>
-          ✓ Profile details updated successfully!
+          Profile details updated successfully!
         </div>
       )}
 
       <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", padding: "12px 18px", marginBottom: "18px", color: "#166534", fontSize: "0.85rem" }}>
-        🔒 <b>Secured Personal Information:</b> Your phone number, age, gender, and UPI/banking credentials are fully protected and strictly viewable only by authorized CrewHub Admins for payout processing and safety verification.
+        <b>Secured Personal Information:</b> Your phone number, age, gender, and UPI/banking credentials are fully protected and strictly viewable only by authorized CrewHub Admins for payout processing and safety verification.
       </div>
 
       <h2 style={{ marginTop: 0 }}>Personal & Contact Details</h2>

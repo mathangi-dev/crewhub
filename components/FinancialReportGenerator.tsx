@@ -226,37 +226,39 @@ export default function FinancialReportGenerator({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
+          gap: "10px",
           flexWrap: "wrap",
           justifyContent: "flex-end",
         }}
       >
-        {/* Month & Year Controls */}
+        {/* Quick Month & Year Picker */}
         <div
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: "6px",
-            background: "#ffffff",
-            padding: "4px 8px",
-            borderRadius: "10px",
-            border: "1px solid var(--border)",
+            gap: "8px",
+            background: "#f8fafc",
+            padding: "5px 12px",
+            borderRadius: "12px",
+            border: "1px solid #cbd5e1",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           }}
         >
           {/* Mode Switcher */}
-          <div style={{ display: "inline-flex", background: "var(--surface)", padding: "2px", borderRadius: "6px" }}>
+          <div style={{ display: "inline-flex", background: "#e2e8f0", padding: "2px", borderRadius: "8px" }}>
             <button
               type="button"
               onClick={() => setMode("month")}
               style={{
-                background: mode === "month" ? "var(--navy)" : "transparent",
-                color: mode === "month" ? "#ffffff" : "var(--slate-gray)",
+                background: mode === "month" ? "#0284c7" : "transparent",
+                color: mode === "month" ? "#ffffff" : "#475569",
                 border: "none",
-                borderRadius: "4px",
-                padding: "3px 8px",
+                borderRadius: "6px",
+                padding: "4px 8px",
                 fontSize: "0.78rem",
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
             >
               Month
@@ -265,20 +267,22 @@ export default function FinancialReportGenerator({
               type="button"
               onClick={() => setMode("year")}
               style={{
-                background: mode === "year" ? "var(--navy)" : "transparent",
-                color: mode === "year" ? "#ffffff" : "var(--slate-gray)",
+                background: mode === "year" ? "#0284c7" : "transparent",
+                color: mode === "year" ? "#ffffff" : "#475569",
                 border: "none",
-                borderRadius: "4px",
-                padding: "3px 8px",
+                borderRadius: "6px",
+                padding: "4px 8px",
                 fontSize: "0.78rem",
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
             >
               Year
             </button>
           </div>
 
+          {/* Month or Year Input */}
           {mode === "month" ? (
             <input
               type="month"
@@ -286,11 +290,11 @@ export default function FinancialReportGenerator({
               onChange={(e) => setSelectedMonth(e.target.value || "2026-11")}
               style={{
                 padding: "4px 8px",
-                fontSize: "0.84rem",
-                border: "1px solid var(--border)",
+                fontSize: "0.85rem",
+                border: "1px solid #94a3b8",
                 borderRadius: "6px",
                 background: "#ffffff",
-                color: "var(--navy)",
+                color: "#0f172a",
                 fontWeight: 600,
                 cursor: "pointer",
                 width: "auto",
@@ -303,11 +307,11 @@ export default function FinancialReportGenerator({
               onChange={(e) => setSelectedYear(e.target.value)}
               style={{
                 padding: "4px 8px",
-                fontSize: "0.84rem",
-                border: "1px solid var(--border)",
+                fontSize: "0.85rem",
+                border: "1px solid #94a3b8",
                 borderRadius: "6px",
                 background: "#ffffff",
-                color: "var(--navy)",
+                color: "#0f172a",
                 fontWeight: 600,
                 cursor: "pointer",
                 width: "auto",
@@ -323,18 +327,24 @@ export default function FinancialReportGenerator({
           )}
         </div>
 
-        {/* Generate Report Button - Navy Background + Teal Hover */}
+        {/* Generate Report Button */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
           className="btn"
           style={{
-            background: "var(--navy)",
+            background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
             color: "#ffffff",
-            fontWeight: 600,
-            padding: "8px 16px",
+            fontWeight: 700,
+            padding: "8px 18px",
             borderRadius: "10px",
-            fontSize: "0.88rem",
+            border: "none",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(2, 132, 199, 0.35)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "0.9rem",
             whiteSpace: "nowrap",
           }}
         >
@@ -342,7 +352,7 @@ export default function FinancialReportGenerator({
         </button>
       </div>
 
-      {/* Modal Dialog: Full Financial Management Statement */}
+      {/* Modal Dialog: Full Financial Management & P&L Statement */}
       {isOpen && (
         <div
           style={{
@@ -351,13 +361,13 @@ export default function FinancialReportGenerator({
             left: 0,
             width: "100vw",
             height: "100vh",
-            backgroundColor: "rgba(0, 7, 45, 0.65)",
-            backdropFilter: "blur(4px)",
+            backgroundColor: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(6px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             zIndex: 9999,
-            padding: "16px",
+            padding: "20px",
             overflowY: "auto",
           }}
           onClick={(e) => {
@@ -367,13 +377,13 @@ export default function FinancialReportGenerator({
           <div
             style={{
               background: "#ffffff",
-              borderRadius: "16px",
-              maxWidth: "860px",
+              borderRadius: "20px",
+              maxWidth: "880px",
               width: "100%",
               maxHeight: "92vh",
               overflowY: "auto",
-              boxShadow: "0 20px 40px rgba(0, 7, 45, 0.2)",
-              border: "1px solid var(--border)",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
+              border: "1px solid #e2e8f0",
               display: "flex",
               flexDirection: "column",
             }}
@@ -381,22 +391,22 @@ export default function FinancialReportGenerator({
             {/* Modal Header */}
             <div
               style={{
-                padding: "20px 24px",
-                borderBottom: "1px solid var(--border)",
+                padding: "22px 28px",
+                borderBottom: "1px solid #e2e8f0",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "flex-start",
-                background: "var(--navy)",
+                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
                 color: "#ffffff",
-                borderRadius: "16px 16px 0 0",
+                borderRadius: "20px 20px 0 0",
               }}
             >
               <div>
-                <h2 style={{ margin: 0, color: "#ffffff", fontSize: "1.3rem", fontWeight: 800 }}>
+                <h2 style={{ margin: 0, color: "#ffffff", fontSize: "1.35rem", fontWeight: 800 }}>
                   Financial Management Report
                 </h2>
-                <div style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: "0.85rem", marginTop: "4px" }}>
-                  Income, Revenue & Profit Performance Statement for <b>{periodLabel}</b>
+                <div style={{ color: "#94a3b8", fontSize: "0.88rem", marginTop: "4px" }}>
+                  Official Revenue, Income &amp; Profit Performance Statement for <b>{periodLabel}</b>
                 </div>
               </div>
 
@@ -408,52 +418,53 @@ export default function FinancialReportGenerator({
                   color: "#ffffff",
                   border: "none",
                   borderRadius: "50%",
-                  width: "30px",
-                  height: "30px",
+                  width: "32px",
+                  height: "32px",
                   display: "grid",
                   placeItems: "center",
-                  fontSize: "1rem",
+                  fontSize: "1.1rem",
                   cursor: "pointer",
                   fontWeight: 700,
+                  transition: "background 0.15s",
                 }}
-                title="Close"
+                title="Close Report"
               >
-                ✕
+                &times;
               </button>
             </div>
 
             {/* Modal Body */}
-            <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: "20px" }}>
-              {/* Quick Period Selector */}
+            <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "22px" }}>
+              {/* Quick Period Selector Inside Modal */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   flexWrap: "wrap",
-                  gap: "10px",
-                  background: "var(--surface)",
-                  padding: "10px 16px",
+                  gap: "12px",
+                  background: "#f8fafc",
+                  padding: "12px 18px",
                   borderRadius: "12px",
-                  border: "1px solid var(--border)",
+                  border: "1px solid #e2e8f0",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--navy)" }}>
-                    Period:
+                  <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#475569" }}>
+                    Select Required Period:
                   </span>
-                  <div style={{ display: "inline-flex", background: "#ffffff", padding: "2px", borderRadius: "6px", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "inline-flex", background: "#e2e8f0", padding: "2px", borderRadius: "8px" }}>
                     <button
                       type="button"
                       onClick={() => setMode("month")}
                       style={{
-                        background: mode === "month" ? "var(--navy)" : "transparent",
-                        color: mode === "month" ? "#ffffff" : "var(--slate-gray)",
+                        background: mode === "month" ? "#0284c7" : "transparent",
+                        color: mode === "month" ? "#ffffff" : "#475569",
                         border: "none",
-                        borderRadius: "4px",
-                        padding: "4px 8px",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
+                        borderRadius: "6px",
+                        padding: "5px 10px",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
@@ -463,13 +474,13 @@ export default function FinancialReportGenerator({
                       type="button"
                       onClick={() => setMode("year")}
                       style={{
-                        background: mode === "year" ? "var(--navy)" : "transparent",
-                        color: mode === "year" ? "#ffffff" : "var(--slate-gray)",
+                        background: mode === "year" ? "#0284c7" : "transparent",
+                        color: mode === "year" ? "#ffffff" : "#475569",
                         border: "none",
-                        borderRadius: "4px",
-                        padding: "4px 8px",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
+                        borderRadius: "6px",
+                        padding: "5px 10px",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
@@ -483,13 +494,13 @@ export default function FinancialReportGenerator({
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value || "2026-11")}
                       style={{
-                        padding: "5px 10px",
-                        fontSize: "0.85rem",
-                        border: "1px solid var(--border)",
-                        borderRadius: "6px",
+                        padding: "6px 12px",
+                        fontSize: "0.88rem",
+                        border: "1px solid #94a3b8",
+                        borderRadius: "8px",
                         background: "#ffffff",
-                        color: "var(--navy)",
-                        fontWeight: 600,
+                        color: "#0f172a",
+                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     />
@@ -498,13 +509,13 @@ export default function FinancialReportGenerator({
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(e.target.value)}
                       style={{
-                        padding: "5px 10px",
-                        fontSize: "0.85rem",
-                        border: "1px solid var(--border)",
-                        borderRadius: "6px",
+                        padding: "6px 12px",
+                        fontSize: "0.88rem",
+                        border: "1px solid #94a3b8",
+                        borderRadius: "8px",
                         background: "#ffffff",
-                        color: "var(--navy)",
-                        fontWeight: 600,
+                        color: "#0f172a",
+                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
@@ -517,6 +528,7 @@ export default function FinancialReportGenerator({
                   )}
                 </div>
 
+                {/* Quick Presets */}
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                   <button
                     type="button"
@@ -525,12 +537,12 @@ export default function FinancialReportGenerator({
                       setSelectedMonth("2026-10");
                     }}
                     style={{
-                      padding: "4px 9px",
-                      fontSize: "0.76rem",
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
                       borderRadius: "6px",
-                      background: selectedMonth === "2026-10" && mode === "month" ? "var(--navy)" : "#ffffff",
-                      color: selectedMonth === "2026-10" && mode === "month" ? "#ffffff" : "var(--slate-gray)",
-                      border: "1px solid var(--border)",
+                      background: selectedMonth === "2026-10" && mode === "month" ? "#0f172a" : "#ffffff",
+                      color: selectedMonth === "2026-10" && mode === "month" ? "#ffffff" : "#334155",
+                      border: "1px solid #cbd5e1",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
@@ -544,12 +556,12 @@ export default function FinancialReportGenerator({
                       setSelectedMonth("2026-11");
                     }}
                     style={{
-                      padding: "4px 9px",
-                      fontSize: "0.76rem",
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
                       borderRadius: "6px",
-                      background: selectedMonth === "2026-11" && mode === "month" ? "var(--navy)" : "#ffffff",
-                      color: selectedMonth === "2026-11" && mode === "month" ? "#ffffff" : "var(--slate-gray)",
-                      border: "1px solid var(--border)",
+                      background: selectedMonth === "2026-11" && mode === "month" ? "#0f172a" : "#ffffff",
+                      color: selectedMonth === "2026-11" && mode === "month" ? "#ffffff" : "#334155",
+                      border: "1px solid #cbd5e1",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
@@ -563,12 +575,12 @@ export default function FinancialReportGenerator({
                       setSelectedMonth("2026-12");
                     }}
                     style={{
-                      padding: "4px 9px",
-                      fontSize: "0.76rem",
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
                       borderRadius: "6px",
-                      background: selectedMonth === "2026-12" && mode === "month" ? "var(--navy)" : "#ffffff",
-                      color: selectedMonth === "2026-12" && mode === "month" ? "#ffffff" : "var(--slate-gray)",
-                      border: "1px solid var(--border)",
+                      background: selectedMonth === "2026-12" && mode === "month" ? "#0f172a" : "#ffffff",
+                      color: selectedMonth === "2026-12" && mode === "month" ? "#ffffff" : "#334155",
+                      border: "1px solid #cbd5e1",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
@@ -582,159 +594,179 @@ export default function FinancialReportGenerator({
                       setSelectedYear("2026");
                     }}
                     style={{
-                      padding: "4px 9px",
-                      fontSize: "0.76rem",
+                      padding: "4px 10px",
+                      fontSize: "0.78rem",
                       borderRadius: "6px",
-                      background: mode === "year" && selectedYear === "2026" ? "var(--navy)" : "#ffffff",
-                      color: mode === "year" && selectedYear === "2026" ? "#ffffff" : "var(--slate-gray)",
-                      border: "1px solid var(--border)",
+                      background: mode === "year" && selectedYear === "2026" ? "#0f172a" : "#ffffff",
+                      color: mode === "year" && selectedYear === "2026" ? "#ffffff" : "#334155",
+                      border: "1px solid #cbd5e1",
                       cursor: "pointer",
                       fontWeight: 600,
                     }}
                   >
-                    Year 2026
+                    Full Year 2026
                   </button>
                 </div>
               </div>
 
-              {/* 4 Financial KPI Cards - Ice Blue Background */}
+              {/* 4 Key Financial Metrics Cards */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "12px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "14px",
                 }}
               >
-                {/* Gross Income */}
+                {/* 1. Gross Income */}
                 <div
                   style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
+                    background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
+                    border: "1px solid #86efac",
                     borderRadius: "14px",
-                    padding: "16px",
+                    padding: "16px 18px",
                   }}
                 >
-                  <span style={{ fontSize: "0.78rem", color: "var(--slate-gray)", fontWeight: 700, textTransform: "uppercase" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#166534", fontWeight: 700, textTransform: "uppercase" }}>
                     Gross Income
                   </span>
-                  <b style={{ fontSize: "1.55rem", color: "var(--text-primary)", display: "block", margin: "4px 0 2px" }}>
+                  <b style={{ fontSize: "1.65rem", color: "#14532d", display: "block", margin: "6px 0 2px" }}>
                     {inr(totalIncome)}
                   </b>
-                  <div style={{ fontSize: "0.76rem", color: "var(--slate-gray)" }}>
+                  <div style={{ fontSize: "0.76rem", color: "#15803d" }}>
                     Total collected from organizers
                   </div>
                 </div>
 
-                {/* Platform Profit */}
+                {/* 2. Platform Profit */}
                 <div
                   style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
+                    background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+                    border: "1px solid #93c5fd",
                     borderRadius: "14px",
-                    padding: "16px",
+                    padding: "16px 18px",
                   }}
                 >
-                  <span style={{ fontSize: "0.78rem", color: "var(--teal)", fontWeight: 700, textTransform: "uppercase" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#1e40af", fontWeight: 700, textTransform: "uppercase" }}>
                     Platform Profit
                   </span>
-                  <b style={{ fontSize: "1.55rem", color: "var(--navy)", display: "block", margin: "4px 0 2px" }}>
+                  <b style={{ fontSize: "1.65rem", color: "#1e3a8a", display: "block", margin: "6px 0 2px" }}>
                     {inr(totalProfit)}
                   </b>
-                  <div style={{ fontSize: "0.76rem", color: "var(--slate-gray)" }}>
-                    15% platform commission
+                  <div style={{ fontSize: "0.76rem", color: "#2563eb" }}>
+                    15% Commission (Pure Revenue)
                   </div>
                 </div>
 
-                {/* Volunteer Payouts */}
+                {/* 3. Volunteer Payouts */}
                 <div
                   style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
+                    background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+                    border: "1px solid #d8b4fe",
                     borderRadius: "14px",
-                    padding: "16px",
+                    padding: "16px 18px",
                   }}
                 >
-                  <span style={{ fontSize: "0.78rem", color: "var(--slate-gray)", fontWeight: 700, textTransform: "uppercase" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#6b21a8", fontWeight: 700, textTransform: "uppercase" }}>
                     Volunteer Payouts
                   </span>
-                  <b style={{ fontSize: "1.55rem", color: "var(--text-primary)", display: "block", margin: "4px 0 2px" }}>
+                  <b style={{ fontSize: "1.65rem", color: "#581c87", display: "block", margin: "6px 0 2px" }}>
                     {inr(totalCrewPayouts)}
                   </b>
-                  <div style={{ fontSize: "0.76rem", color: "var(--slate-gray)" }}>
+                  <div style={{ fontSize: "0.76rem", color: "#7e22ce" }}>
                     Disbursed via YouPI-PG Gateway
                   </div>
                 </div>
 
-                {/* Refunds */}
+                {/* 4. Refunds Processed */}
                 <div
                   style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
+                    background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+                    border: "1px solid #fed7aa",
                     borderRadius: "14px",
-                    padding: "16px",
+                    padding: "16px 18px",
                   }}
                 >
-                  <span style={{ fontSize: "0.78rem", color: "var(--slate-gray)", fontWeight: 700, textTransform: "uppercase" }}>
+                  <span style={{ fontSize: "0.8rem", color: "#9a3412", fontWeight: 700, textTransform: "uppercase" }}>
                     Refunded
                   </span>
-                  <b style={{ fontSize: "1.55rem", color: "var(--text-primary)", display: "block", margin: "4px 0 2px" }}>
+                  <b style={{ fontSize: "1.65rem", color: "#7c2d12", display: "block", margin: "6px 0 2px" }}>
                     {inr(totalRefunds)}
                   </b>
-                  <div style={{ fontSize: "0.76rem", color: "var(--slate-gray)" }}>
+                  <div style={{ fontSize: "0.76rem", color: "#c2410c" }}>
                     Returned to organizers
                   </div>
                 </div>
               </div>
 
-              {/* Profit Margin & Operating Highlights */}
+              {/* Profit Margin & Performance Highlights Banner */}
               <div
                 style={{
-                  background: "#ffffff",
+                  background: "#f1f5f9",
                   borderRadius: "12px",
-                  padding: "12px 16px",
+                  padding: "14px 18px",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   flexWrap: "wrap",
-                  gap: "10px",
-                  border: "1px solid var(--border)",
+                  gap: "12px",
+                  border: "1px solid #e2e8f0",
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--slate-gray)", textTransform: "uppercase", fontWeight: 700 }}>
-                    Financial Summary
+                  <div style={{ fontSize: "0.82rem", color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>
+                    Financial Efficiency &amp; Zero-Fee Settlement
                   </div>
-                  <div style={{ fontSize: "0.92rem", color: "var(--text-primary)", fontWeight: 600, marginTop: "2px" }}>
-                    Operating Profit Margin: <b>{profitMargin}%</b> &nbsp;·&nbsp;
-                    Net Platform Retained Cash: <b>{inr(netCashflow)}</b>
+                  <div style={{ fontSize: "0.95rem", color: "#0f172a", fontWeight: 600, marginTop: "2px" }}>
+                    Operating Profit Margin: <b style={{ color: "#0284c7" }}>{profitMargin}%</b> &nbsp;·&nbsp;
+                    Net Platform Retained Cash: <b style={{ color: "#059669" }}>{inr(netCashflow)}</b>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span className="tag ok">
-                    YouPI-PG Zero-Fee Settlement
+                  <span
+                    style={{
+                      background: "#dcfce7",
+                      color: "#166534",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      padding: "4px 10px",
+                      borderRadius: "99px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    YouPI-PG 0% Gateway Fee
                   </span>
-                  <span className="tag">
-                    {filteredEvents.length} Event{filteredEvents.length === 1 ? "" : "s"}
+                  <span
+                    style={{
+                      background: "#e0f2fe",
+                      color: "#0369a1",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      padding: "4px 10px",
+                      borderRadius: "99px",
+                    }}
+                  >
+                    {filteredEvents.length} Event{filteredEvents.length === 1 ? "" : "s"} In Period
                   </span>
                 </div>
               </div>
 
-              {/* Itemized Table */}
+              {/* Itemized Table of Events & Revenue in Selected Period */}
               <div>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 10px", color: "var(--text-primary)" }}>
-                  Revenue &amp; Profit Breakdown
+                <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 10px", color: "#0f172a" }}>
+                  Revenue &amp; Profit Breakdown ({filteredEvents.length} Events)
                 </h3>
 
                 {!filteredEvents.length ? (
-                  <p style={{ background: "var(--surface)", padding: "14px", borderRadius: "10px", color: "var(--slate-gray)", fontSize: "0.88rem", textAlign: "center" }}>
-                    No funded events found for {periodLabel}.
+                  <p style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", color: "#64748b", fontSize: "0.9rem", textAlign: "center" }}>
+                    No funded events found for {periodLabel}. Try selecting another month or &quot;Full Year 2026&quot;.
                   </p>
                 ) : (
-                  <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "10px" }}>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", textAlign: "left" }}>
                       <thead>
-                        <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", color: "var(--navy)" }}>
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569" }}>
                           <th style={{ padding: "10px 12px" }}>Event</th>
                           <th style={{ padding: "10px 12px" }}>Organizer</th>
                           <th style={{ padding: "10px 12px" }}>Payment Date</th>
@@ -749,13 +781,13 @@ export default function FinancialReportGenerator({
                           <tr
                             key={e.id}
                             style={{
-                              borderBottom: idx === filteredEvents.length - 1 ? "none" : "1px solid var(--border)",
-                              background: idx % 2 === 0 ? "#ffffff" : "var(--surface)",
+                              borderBottom: idx === filteredEvents.length - 1 ? "none" : "1px solid #f1f5f9",
+                              background: idx % 2 === 0 ? "#ffffff" : "#fafafa",
                             }}
                           >
                             <td style={{ padding: "10px 12px" }}>
                               <b>{e.title}</b>
-                              <div style={{ fontSize: "0.75rem", color: "var(--slate-gray)" }}>
+                              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
                                 {e.category} · {e.city}
                               </div>
                             </td>
@@ -763,57 +795,90 @@ export default function FinancialReportGenerator({
                             <td style={{ padding: "10px 12px" }}>
                               {e.paidAt ? new Date(e.paidAt).toLocaleDateString("en-IN") : "—"}
                             </td>
-                            <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                            <td style={{ padding: "10px 12px", textAlign: "right", color: "#334155" }}>
                               {inr(e.crewTotal)}
                             </td>
-                            <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--navy)" }}>
+                            <td style={{ padding: "10px 12px", textAlign: "right", color: "#0284c7", fontWeight: 700 }}>
                               {inr(e.commission)}
                             </td>
-                            <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700 }}>
+                            <td style={{ padding: "10px 12px", textAlign: "right", color: "#0f172a", fontWeight: 700 }}>
                               {inr(e.crewTotal + e.commission)}
                             </td>
                             <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                              <span className="tag ok">
+                              <span
+                                style={{
+                                  background: "#dcfce7",
+                                  color: "#166534",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 700,
+                                  padding: "2px 8px",
+                                  borderRadius: "99px",
+                                }}
+                              >
                                 {e.payStatus}
                               </span>
                             </td>
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr style={{ background: "#f1f5f9", fontWeight: 800, borderTop: "2px solid #cbd5e1" }}>
+                          <td colSpan={3} style={{ padding: "10px 12px", color: "#0f172a" }}>
+                            TOTAL FOR {periodLabel.toUpperCase()}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#334155" }}>
+                            {inr(filteredEvents.reduce((n, x) => n + x.crewTotal, 0))}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#0284c7" }}>
+                            {inr(totalProfit)}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#059669" }}>
+                            {inr(totalIncome)}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}></td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal Footer / Action Buttons */}
             <div
               style={{
-                padding: "14px 24px",
-                borderTop: "1px solid var(--border)",
-                background: "var(--surface)",
+                padding: "16px 28px",
+                borderTop: "1px solid #e2e8f0",
+                background: "#f8fafc",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 flexWrap: "wrap",
-                gap: "10px",
-                borderRadius: "0 0 16px 16px",
+                gap: "12px",
+                borderRadius: "0 0 20px 20px",
               }}
             >
-              <div style={{ fontSize: "0.8rem", color: "var(--slate-gray)" }}>
-                Verified via CrewHub Financial Management Engine &amp; YouPI-PG Ledger.
+              <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+                Generated securely via CrewHub Financial Management Engine &amp; YouPI-PG Ledger.
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <button
                   type="button"
                   onClick={handleDownloadCSV}
                   className="btn"
                   style={{
-                    background: "var(--navy)",
+                    background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
                     color: "#ffffff",
-                    fontSize: "0.85rem",
-                    padding: "8px 16px",
+                    fontWeight: 700,
+                    padding: "9px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.88rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
                   }}
                 >
                   Download CSV Statement
@@ -822,10 +887,19 @@ export default function FinancialReportGenerator({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="btn ghost"
+                  className="btn"
                   style={{
-                    fontSize: "0.85rem",
-                    padding: "8px 14px",
+                    background: "#0f172a",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    padding: "9px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "0.88rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
                   }}
                 >
                   Print Report
@@ -836,8 +910,13 @@ export default function FinancialReportGenerator({
                   onClick={() => setIsOpen(false)}
                   className="btn ghost"
                   style={{
-                    fontSize: "0.85rem",
-                    padding: "8px 14px",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "0.88rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: "1px solid #cbd5e1",
+                    color: "#475569",
                   }}
                 >
                   Close

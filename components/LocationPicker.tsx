@@ -115,7 +115,7 @@ export default function LocationPicker({
         setLng(pos.lng);
         circle.setLatLng(pos);
         marker.setPopupContent(`<b>Venue Location</b><br>Radius: ${radius} km`).openPopup();
-        setStatusMsg(`📍 Venue pinned at: ${pos.lat.toFixed(4)}° N, ${pos.lng.toFixed(4)}° E`);
+        setStatusMsg(`Venue pinned at: ${pos.lat.toFixed(4)}° N, ${pos.lng.toFixed(4)}° E`);
       });
 
       // On map click
@@ -126,7 +126,7 @@ export default function LocationPicker({
         marker.setLatLng([clickLat, clickLng]);
         circle.setLatLng([clickLat, clickLng]);
         marker.setPopupContent(`<b>Venue Location</b><br>Radius: ${radius} km`).openPopup();
-        setStatusMsg(`📍 Venue repositioned at: ${clickLat.toFixed(4)}° N, ${clickLng.toFixed(4)}° E`);
+        setStatusMsg(`Venue repositioned at: ${clickLat.toFixed(4)}° N, ${clickLng.toFixed(4)}° E`);
       });
     }
 
@@ -180,7 +180,7 @@ export default function LocationPicker({
       if (vLower.includes(key) || key.includes(vLower)) {
         updateMapPosition(coords[0], coords[1], 15);
         setAddress(`${v}, ${c}`);
-        setStatusMsg(`📍 Venue matched: ${v} (${coords[0]}° N, ${coords[1]}° E)`);
+        setStatusMsg(`Venue matched: ${v} (${coords[0]}° N, ${coords[1]}° E)`);
         return;
       }
     }
@@ -202,14 +202,14 @@ export default function LocationPicker({
         const newLng = parseFloat(found.lon);
         updateMapPosition(newLat, newLng, 15);
         setAddress(found.display_name);
-        setStatusMsg(`📍 Venue located: ${found.display_name.slice(0, 60)}...`);
+        setStatusMsg(`Venue located: ${found.display_name.slice(0, 60)}...`);
       } else {
         // Fallback to City coordinates if specific venue place is not in OSM database
         const cityLower = c.toLowerCase();
         const cityFallback = CITY_COORDS_MAP[cityLower];
         if (cityFallback) {
           updateMapPosition(cityFallback[0], cityFallback[1], 13);
-          setStatusMsg(`📍 Centered on ${c}. You can drag or click the map pin to mark ${v} precisely.`);
+          setStatusMsg(`Centered on ${c}. You can drag or click the map pin to mark ${v} precisely.`);
         } else {
           setStatusMsg("Venue not found automatically. Click on the map to set the venue pin.");
         }
@@ -287,7 +287,7 @@ export default function LocationPicker({
             cursor: "pointer",
           }}
         >
-          <span>🔍</span> {isSearching ? "Locating Venue..." : "Locate Venue on Map"}
+          {isSearching ? "Locating Venue..." : "Locate Venue on Map"}
         </button>
 
         {/* Quick Venue Examples for Instant Testing */}
@@ -374,7 +374,7 @@ export default function LocationPicker({
         >
           <div>
             <b style={{ fontSize: "0.95rem", color: "#00072D", display: "flex", alignItems: "center", gap: "6px" }}>
-              🔔 Fix Notification Radius Around Venue
+              Fix Notification Radius Around Venue
             </b>
             <div className="mute" style={{ fontSize: "0.8rem", marginTop: "2px" }}>
               Only volunteers located within this radius around <b>{venue || "this venue"}</b> will receive notifications!
@@ -469,7 +469,7 @@ export default function LocationPicker({
         }}
       >
         <span>
-          ✓ <b>Venue Pin:</b> {venue ? `"${venue}"` : "Venue"} at {lat.toFixed(4)}° N, {lng.toFixed(4)}° E &nbsp;·&nbsp; Alert Radius: <b>{radius} km</b>
+          <b>Venue Pin:</b> {venue ? `"${venue}"` : "Venue"} at {lat.toFixed(4)}° N, {lng.toFixed(4)}° E &nbsp;·&nbsp; Alert Radius: <b>{radius} km</b>
         </span>
         <span style={{ color: "#047857", fontWeight: 600 }}>
           Notifications will strictly target people within {radius} km of this venue!

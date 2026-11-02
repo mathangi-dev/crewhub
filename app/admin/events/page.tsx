@@ -60,7 +60,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
             <Tag c={one.payStatus === "PAID" ? "ok" : "bad"}>{one.payStatus}</Tag>
             {one.status === "PUBLISHED" && isReqFilled(one) && (
               <span className="tag ok" style={{ fontWeight: 700, marginLeft: 6 }}>
-                ✓ Requirements Completed
+                Requirements Completed
               </span>
             )}
             <div className="mute">
@@ -98,7 +98,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
               }}
             >
               <div>
-                <b style={{ fontSize: "1rem" }}>✓ Volunteer Requirements 100% Completed!</b>
+                <b style={{ fontSize: "1rem" }}>Volunteer Requirements 100% Completed!</b>
                 <div style={{ fontSize: "0.85rem", marginTop: "2px" }}>
                   All {crewSlots(one)} required volunteer positions are filled and accepted.
                 </div>
@@ -109,7 +109,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                 style={{ background: "#15803d", color: "#fff", padding: "8px 18px", fontSize: "0.85rem" }}
                 download
               >
-                📊 Download Roster with Bank & Payout (CSV)
+                Download Roster with Bank & Payout (CSV)
               </a>
             </div>
           ) : (
@@ -142,7 +142,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                 style={{ padding: "6px 14px", fontSize: "0.82rem" }}
                 download
               >
-                📊 Export Current Roster (CSV)
+                Export Current Roster (CSV)
               </a>
             </div>
           ))}
@@ -264,7 +264,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                       className="tag ok"
                       style={{ fontWeight: 700, marginLeft: 6, background: "#dcfce7", color: "#15803d" }}
                     >
-                      ✓ Requirements Completed ({a}/{s})
+                      Requirements Completed ({a}/{s})
                     </span>
                   ) : (
                     <span

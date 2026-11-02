@@ -133,14 +133,14 @@ export default async function Page({ searchParams: sp }: { searchParams: SP }) {
             className={`btn ${!isMapView ? "" : "ghost"}`}
             style={{ fontSize: "0.85rem", padding: "8px 16px" }}
           >
-            ⊞ Grid View
+            Grid View
           </Link>
           <Link
             href={`/volunteer/events?${new URLSearchParams({ ...sp, view: "map" }).toString()}`}
             className={`btn ${isMapView ? "" : "ghost"}`}
             style={{ fontSize: "0.85rem", padding: "8px 16px" }}
           >
-            🗺️ Map View
+            Map View
           </Link>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default async function Page({ searchParams: sp }: { searchParams: SP }) {
               }}
             >
               <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#00072D" }}>
-                🎯 Recommended Events Near You ({nearbyCount})
+                Recommended Events Near You ({nearbyCount})
               </h2>
               <span
                 style={{

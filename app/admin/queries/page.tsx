@@ -92,7 +92,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
               {selectedQuery.status !== "RESOLVED" && (
                 <form action={resolveQuery.bind(null, selectedQuery.id)}>
                   <button className="ghost" style={{ fontSize: "0.82rem" }}>
-                    Mark Resolved ✓
+                    Mark Resolved
                   </button>
                 </form>
               )}
@@ -115,7 +115,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                     margin: "12px 0 16px",
                   }}
                 >
-                  <b style={{ color: "#166534" }}>💬 Previous Admin Reply:</b>
+                  <b style={{ color: "#166534" }}>Previous Admin Reply:</b>
                   <p style={{ margin: "4px 0 0", color: "#14532d" }}>{selectedQuery.answer}</p>
                   {selectedQuery.answeredAt && (
                     <div className="mute" style={{ fontSize: "0.75rem", marginTop: "4px" }}>
@@ -140,7 +140,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                   style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
                 />
                 <div style={{ marginTop: "10px" }}>
-                  <SubmitBtn pendingText="Sending response...">Send Reply to {selectedQuery.user.name} ✉</SubmitBtn>
+                  <SubmitBtn pendingText="Sending response...">Send Reply to {selectedQuery.user.name}</SubmitBtn>
                 </div>
               </form>
             </div>
@@ -204,11 +204,11 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
                       <div className="mute" style={{ fontSize: "0.82rem", marginTop: "3px" }}>
                         From: <b>{q.user.name}</b> ({q.user.role}) · {q.createdAt.toLocaleDateString("en-IN")} at{" "}
                         {q.createdAt.toLocaleTimeString("en-IN", { timeStyle: "short" })}
-                        {q.answer ? " · ✓ Answered" : " · ⏳ Needs reply"}
+                        {q.answer ? " · Answered" : " · Needs reply"}
                       </div>
                     </div>
                     <span className="mute" style={{ fontSize: "0.84rem" }}>
-                      Open ➔
+                      Open
                     </span>
                   </Link>
                 );

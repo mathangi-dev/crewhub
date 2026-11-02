@@ -14,7 +14,7 @@ export async function register(f: FormData) {
   const u = await db.user.create({ data: { email: s(f, "email").toLowerCase(), name: s(f, "name"), role, city: s(f, "city"), password: await bcrypt.hash(s(f, "password"), 10) } })
   if (role === "VOLUNTEER") {
     await notifyAdmins({
-      title: `👤 New Volunteer Registered: ${u.name}`,
+      title: `New Volunteer Registered: ${u.name}`,
       message: `${u.name} (${u.city || "Tamil Nadu"}) has joined CrewHub as a volunteer.`,
       link: `/admin/volunteers`,
     }).catch(console.error)
@@ -100,7 +100,7 @@ export async function createEvent(f: FormData) {
   
   // Notify admin when new event is created
   await notifyAdmins({
-    title: `📢 New Event Created: ${ev.title}`,
+    title: `New Event Created: ${ev.title}`,
     message: `Organizer "${u.orgName || u.name}" created event "${ev.title}" in ${ev.city} (${free ? "Ready for approval" : "Awaiting payment"}).`,
     link: `/admin/events?s=PENDING`,
     eventId: ev.id,
@@ -159,7 +159,7 @@ export async function payEvent(id: string, formDataOrRef?: FormData | string) { 
     await log(u.id, `paid:${id}:${ref}`)
     // Notify admin that event payment was funded and is ready for approval
     await notifyAdmins({
-      title: `💳 Event Payment Completed: ${existing.title}`,
+      title: `Event Payment Completed: ${existing.title}`,
       message: `Organizer "${u.orgName || u.name}" paid ₹${totalAmount} via UPI to Admin (${ADMIN_UPI_NUMBER}, UTR: ${ref}). Ready for your approval.`,
       link: `/admin/events?s=PENDING`,
       eventId: id,
@@ -245,7 +245,7 @@ export async function decide(id: string, status: "ACCEPTED" | "REJECTED") {
               data: {
                 userId: ev.organizerId,
                 eventId: ev.id,
-                title: `🎉 Volunteer Requirements Completed: ${ev.title}`,
+                title: `Volunteer Requirements Completed: ${ev.title}`,
                 message: `All ${totalSlots} required volunteer slots for "${ev.title}" have been successfully filled! You can now view your crew and download the volunteer roster spreadsheet.`,
                 link: `/organizer?tab=manage&event=${ev.id}`,
               }
@@ -285,21 +285,21 @@ export async function userAct(id: string, kind: "APPROVED" | "REJECTED" | "SUSPE
   if (kind === "APPROVED") {
     await notifyUser({
       userId: t.id,
-      title: `🎉 Account Approved!`,
+      title: `Account Approved!`,
       message: `Your ${t.role.toLowerCase()} account has been verified and approved by the CrewHub Admin. Welcome aboard!`,
       link: t.role === "ORGANIZER" ? "/organizer" : "/volunteer/events"
     }).catch(console.error)
   } else if (kind === "SUSPEND") {
     await notifyUser({
       userId: t.id,
-      title: `⚠️ Account Deactivated / Suspended`,
+      title: `Account Deactivated / Suspended`,
       message: `Your account has been deactivated due to absence policy or complaint reviews. Contact admin for reinstatement.`,
       link: t.role === "ORGANIZER" ? "/organizer?tab=contact" : "/volunteer/contact"
     }).catch(console.error)
   } else if (kind === "REINSTATE") {
     await notifyUser({
       userId: t.id,
-      title: `✅ Account Reinstated!`,
+      title: `Account Reinstated!`,
       message: `Your account has been reinstated and absence records reset by Admin. You can now participate again.`,
       link: t.role === "ORGANIZER" ? "/organizer" : "/volunteer/events"
     }).catch(console.error)
@@ -315,7 +315,7 @@ export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
     await notifyUser({
       userId: e.organizerId,
       eventId: e.id,
-      title: `🎉 Event Approved & Published: ${e.title}`,
+      title: `Event Approved & Published: ${e.title}`,
       message: `Your event "${e.title}" in ${e.city} has been approved by Admin and published to nearby volunteers!`,
       link: `/organizer?tab=manage&event=${e.id}`
     }).catch(console.error)
@@ -325,7 +325,7 @@ export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
     await notifyUser({
       userId: e.organizerId,
       eventId: e.id,
-      title: `❌ Event Rejected: ${e.title}`,
+      title: `Event Rejected: ${e.title}`,
       message: `Your event "${e.title}" was rejected by Admin.${e.payStatus === "PAID" ? " The payment will be refunded." : ""}`,
       link: `/organizer?tab=events`
     }).catch(console.error)
@@ -368,7 +368,7 @@ export async function payoutAll(eventId: string) {
       await notifyUser({
         userId: x.userId,
         eventId: e.id,
-        title: `💰 Salary Payout Received: ₹${r.pay} via YouPI-PG`,
+        title: `Salary Payout Received: ₹${r.pay} via YouPI-PG`,
         message: `Your payout of ₹${r.pay} for role "${r.title}" in "${e.title}" has been successfully transferred to your UPI (${x.user?.upiNumber || x.user?.upiId || "Bank"}) via YouPI Payment Gateway (UTR: ${utr})!`,
         link: `/volunteer/payments`,
       }).catch(console.error)
@@ -407,7 +407,7 @@ export async function payoutOne(appId: string) {
     await notifyUser({
       userId: row.a.userId,
       eventId: e.id,
-      title: `💰 Payment Received: ₹${row.r.pay}`,
+      title: `Payment Received: ₹${row.r.pay}`,
       message: `Your payout of ₹${row.r.pay} for role "${row.r.title}" in event "${e.title}" has been successfully transferred via UPI (UTR: ${utr})!`,
       link: `/volunteer/payments`,
     }).catch(console.error)
@@ -431,7 +431,7 @@ export async function requestPayment(appId: string) {
 
   // Send high-priority notification to Admin
   await notifyAdmins({
-    title: `⚠️ Payment Request from ${u.name}`,
+    title: `Payment Request from ${u.name}`,
     message: `Volunteer ${u.name} requested payout for event "${app.role.event.title}" (Role: ${app.role.title}, Pay: ₹${app.role.pay}).`,
     link: `/admin/payouts?id=${app.role.eventId}`,
     eventId: app.role.eventId,
@@ -527,7 +527,7 @@ export async function submitQuery(f: FormData) {
 
   // Send high-priority notification to Admins
   await notifyAdmins({
-    title: `📩 New ${category}: ${subject}`,
+    title: `New ${category}: ${subject}`,
     message: `From ${u.name} (${u.role}): "${message.slice(0, 80)}..."`,
     link: `/admin/queries?id=${q.id}`
   }).catch(console.error)
@@ -557,7 +557,7 @@ export async function answerQuery(queryId: string, f: FormData) {
   // Notify the user who asked
   await notifyUser({
     userId: q.userId,
-    title: `💬 Admin Response: ${q.subject}`,
+    title: `Admin Response: ${q.subject}`,
     message: `Admin replied to your ${q.category.toLowerCase()}: "${answer.slice(0, 100)}..."`,
     link: q.user.role === "ORGANIZER" ? "/organizer?tab=contact" : "/volunteer/contact"
   }).catch(console.error)
@@ -599,7 +599,7 @@ export async function fileComplaint(f: FormData) {
   })
 
   await notifyAdmins({
-    title: `⚠️ Complaint Filed against ${targetVol.name}`,
+    title: `Complaint Filed against ${targetVol.name}`,
     message: `${u.name} (${u.role}) filed a complaint: "${reason}". Review volunteer profile.`,
     link: `/admin/volunteers?id=${targetVol.id}`
   }).catch(console.error)

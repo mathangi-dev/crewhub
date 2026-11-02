@@ -243,7 +243,12 @@ export default function NotificationBell() {
                   fontSize: "0.9rem",
                 }}
               >
-                <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🔔</div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", color: "#9ca3af" }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
                 <b>No notifications yet</b>
                 <p style={{ margin: "4px 0 0", fontSize: "0.82rem" }}>
                   You are completely caught up! Live alerts for events, registrations, payouts, and inquiries will appear here in real time.
@@ -326,7 +331,7 @@ export default function NotificationBell() {
                           padding: "2px 8px",
                         }}
                       >
-                        📍 {n.distance} km away
+                        {n.distance} km away
                       </span>
                     )}
                   </div>

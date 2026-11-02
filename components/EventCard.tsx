@@ -21,7 +21,7 @@ export default function EventCard({ href, e, sub, badge, distance }: { href: str
         alignItems: "center",
         gap: "4px"
       }}>
-        📍 {dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)} km`}
+        {dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)} km`}
         {isNearby && <span style={{ opacity: 0.9 }}>· Nearby</span>}
       </span>
     )}

@@ -25,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: { sent?: st
 
       {searchParams.sent && (
         <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "12px 18px", marginBottom: "18px", color: "#065f46", fontSize: "0.9rem" }}>
-          ✓ <b>Query / Complaint Sent Successfully!</b> The Admin has received your message. You will receive an in-app notification when they reply.
+          <b>Query / Complaint Sent Successfully!</b> The Admin has received your message. You will receive an in-app notification when they reply.
         </div>
       )}
 
@@ -55,7 +55,7 @@ export default async function Page({ searchParams }: { searchParams: { sent?: st
             </div>
 
             <div style={{ marginTop: "6px" }}>
-              <SubmitBtn pendingText="Sending to Admin...">Send Query to Admin ✉</SubmitBtn>
+              <SubmitBtn pendingText="Sending to Admin...">Send Query to Admin</SubmitBtn>
             </div>
           </form>
         </div>
@@ -82,7 +82,7 @@ export default async function Page({ searchParams }: { searchParams: { sent?: st
 
                   {q.answer ? (
                     <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "10px 14px", marginTop: "8px" }}>
-                      <b style={{ color: "#166534", fontSize: "0.85rem" }}>💬 Admin Response:</b>
+                      <b style={{ color: "#166534", fontSize: "0.85rem" }}>Admin Response:</b>
                       <p style={{ margin: "4px 0 0", color: "#14532d", fontSize: "0.9rem" }}>{q.answer}</p>
                       {q.answeredAt && (
                         <div className="mute" style={{ fontSize: "0.75rem", marginTop: "4px" }}>
@@ -92,7 +92,7 @@ export default async function Page({ searchParams }: { searchParams: { sent?: st
                     </div>
                   ) : (
                     <div className="mute" style={{ fontSize: "0.82rem", fontStyle: "italic" }}>
-                      ⏳ Awaiting response from Admin...
+                      Awaiting response from Admin...
                     </div>
                   )}
                 </div>
