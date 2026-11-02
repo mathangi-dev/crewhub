@@ -128,15 +128,6 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
           <span className="mute">Admin dashboard</span>
           <h1>Payments & Safe Transaction Ledger</h1>
         </div>
-
-        {/* Straight Right Corner: Financial Management Report Generator */}
-        <FinancialReportGenerator
-          events={financialEvents}
-          applications={financialApplications}
-          transactions={financialTransactions}
-          defaultMonth="2026-11"
-          defaultYear="2026"
-        />
       </div>
       <div className="card">
         <b>Platform fee: {RATE}% of crew pay</b>
@@ -156,7 +147,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
       {/* Safe Transaction Audit Ledger Section */}
       <div style={{ marginTop: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h2>🛡️ Safe Transactions Audit Ledger</h2>
+          <h2>Safe Transactions Audit Ledger</h2>
           <span className="mute" style={{ fontSize: "0.82rem" }}>
             {transactions.length} verified transactions
           </span>
@@ -247,16 +238,22 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
       </div>
 
       <div style={{ marginTop: "32px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
           <div>
-            <h2>Approved Events & Bulk Payouts</h2>
-            <p className="mute">
-              Disburse bulk payments to volunteers via YouPI-PG Gateway or manage event attendance.
+            <h2 style={{ margin: 0 }}>Approved Events History</h2>
+            <p className="mute" style={{ margin: "4px 0 0" }}>
+              Manage event attendance and execute bulk volunteer payouts.
             </p>
           </div>
-          <span className="mute" style={{ fontSize: "0.85rem" }}>
-            {all.length} event{all.length === 1 ? "" : "s"}
-          </span>
+
+          {/* Straight Right Corner of History: Financial Management Report Generator */}
+          <FinancialReportGenerator
+            events={financialEvents}
+            applications={financialApplications}
+            transactions={financialTransactions}
+            defaultMonth="2026-11"
+            defaultYear="2026"
+          />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "14px" }}>
@@ -277,25 +274,24 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                   display: "flex",
                   flexDirection: "column",
                   gap: "14px",
-                  padding: "18px 20px",
-                  borderRadius: "12px",
-                  border: dueSum > 0 ? "1px solid #10b981" : "1px solid var(--border, #e2e8f0)",
-                  background: dueSum > 0 ? "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)" : "inherit"
+                  borderRadius: "16px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                       <Link href={`${base}?id=${e.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                        <b style={{ fontSize: "1.15rem", color: "#0f172a" }}>{e.title}</b>
+                        <b style={{ fontSize: "1.15rem", color: "var(--text-primary)" }}>{e.title}</b>
                       </Link>
                       <Tag c={e.payStatus === "PAID" ? "ok" : "bad"}>{e.payStatus}</Tag>
                       {isEnded ? <Tag c="ok">Completed</Tag> : <Tag c="warn">Live / Upcoming</Tag>}
                     </div>
                     <div className="mute" style={{ marginTop: "4px", fontSize: "0.88rem" }}>
-                      Organizer: <b>{e.organizer.orgName || e.organizer.name}</b> · {when(e)} · 📍 {e.city}
+                      Organizer: <b>{e.organizer.orgName || e.organizer.name}</b> · {when(e)} · {e.city}
                     </div>
-                    <div style={{ marginTop: "6px", fontSize: "0.85rem", color: "#64748b" }}>
+                    <div style={{ marginTop: "6px", fontSize: "0.85rem", color: "var(--slate-gray)" }}>
                       Crew Budget: <b>{inr(e.crewTotal)}</b> · Platform Commission (15%): <b>{inr(e.commission)}</b> · Total: <b>{inr(e.crewTotal + e.commission)}</b>
                     </div>
                   </div>
@@ -326,23 +322,19 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                     justifyContent: "space-between",
                     alignItems: "center",
                     paddingTop: "14px",
-                    borderTop: "1px solid #e2e8f0",
+                    borderTop: "1px solid var(--border)",
                     flexWrap: "wrap",
                     gap: "12px",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     {dueVolunteers.length > 0 ? (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#065f46", fontSize: "0.9rem", fontWeight: 600 }}>
-                        <span>⚡</span>
-                        <span>
-                          {dueVolunteers.length} volunteer{dueVolunteers.length === 1 ? "" : "s"} checked out with verified UPI ({inr(dueSum)} total due)
-                        </span>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--navy)" }}>
+                        {dueVolunteers.length} volunteer{dueVolunteers.length === 1 ? "" : "s"} checked out with verified UPI ({inr(dueSum)} total due)
                       </div>
                     ) : paidVolunteers.length > 0 ? (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#059669", fontSize: "0.9rem", fontWeight: 600 }}>
-                        <span>✓</span>
-                        <span>All {paidVolunteers.length} volunteers paid via YouPI-PG Gateway</span>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 600, color: "var(--teal)" }}>
+                        All {paidVolunteers.length} volunteers paid via YouPI-PG Gateway
                       </div>
                     ) : (
                       <span className="mute" style={{ fontSize: "0.85rem" }}>
@@ -351,8 +343,8 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                     )}
 
                     {noBankVolunteers.length > 0 && (
-                      <span style={{ fontSize: "0.8rem", color: "#d97706", background: "#fef3c7", padding: "2px 8px", borderRadius: "4px" }}>
-                        ⚠️ {noBankVolunteers.length} missing UPI details
+                      <span className="tag warn">
+                        {noBankVolunteers.length} missing UPI details
                       </span>
                     )}
                   </div>
@@ -360,10 +352,10 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <Link
                       href={`${base}?id=${e.id}`}
-                      className="btn"
-                      style={{ fontSize: "0.85rem", padding: "8px 14px", textDecoration: "none" }}
+                      className="btn ghost"
+                      style={{ fontSize: "0.85rem", padding: "8px 14px" }}
                     >
-                      View Details & Attendance →
+                      View Details &amp; Attendance
                     </Link>
 
                     {dueVolunteers.length > 0 && (
@@ -372,21 +364,14 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                           type="submit"
                           className="btn"
                           style={{
-                            background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                            background: "var(--navy)",
                             color: "#ffffff",
                             fontWeight: 700,
                             padding: "9px 20px",
-                            borderRadius: "8px",
-                            border: "none",
-                            cursor: "pointer",
-                            boxShadow: "0 2px 8px rgba(5, 150, 105, 0.35)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontSize: "0.92rem",
+                            fontSize: "0.9rem",
                           }}
                         >
-                          ⚡ Pay All ({inr(dueSum)} for {dueVolunteers.length} {dueVolunteers.length === 1 ? "Person" : "People"} via YouPI-PG)
+                          Pay All ({inr(dueSum)} for {dueVolunteers.length} {dueVolunteers.length === 1 ? "Person" : "People"} via YouPI-PG)
                         </button>
                       </form>
                     )}
