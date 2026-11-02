@@ -26,14 +26,14 @@ export default function CheckoutPaymentModule({
   initialUtr: string;
   payEventAction: (id: string, formData: FormData) => Promise<void>;
 }) {
-  const [method, setMethod] = useState<"razorpay" | "upi">("razorpay");
-  const [razorpaySuccess, setRazorpaySuccess] = useState(false);
-  const [simulatedPaymentId, setSimulatedPaymentId] = useState("");
+  const [utrClaim, setUtrClaim] = useState(initialUtr);
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"youpi_qr" | "youpi_intent">("youpi_intent");
 
-  const handleSimulateRazorpay = () => {
-    const fakeId = `pay_${Math.random().toString(36).substring(2, 11)}_${Date.now().toString().slice(-4)}`;
-    setSimulatedPaymentId(fakeId);
-    setRazorpaySuccess(true);
+  const copyVpa = () => {
+    navigator.clipboard.writeText(adminUpiId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -41,260 +41,244 @@ export default function CheckoutPaymentModule({
       style={{
         margin: "20px 0",
         background: "#ffffff",
-        border: "1.5px solid #e2e8f0",
+        border: "1.5px solid #0284c7",
         borderRadius: "16px",
         overflow: "hidden",
-        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
+        boxShadow: "0 8px 30px rgba(2, 132, 199, 0.08)",
       }}
     >
-      {/* Header & Tabs */}
+      {/* YouPI-PG Gateway Banner */}
       <div
         style={{
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
           padding: "16px 20px",
           color: "#fff",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
-          gap: "10px",
+          gap: "12px",
         }}
       >
-        <div>
-          <b style={{ fontSize: "1.05rem", color: "#f8fafc" }}>CrewHub Secure Escrow Checkout</b>
-          <div style={{ fontSize: "0.82rem", color: "#94a3b8" }}>
-            15% Platform fee included. 100% money-back guarantee for absentees.
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              background: "#fff",
+              color: "#0284c7",
+              fontWeight: 900,
+              fontSize: "0.88rem",
+              padding: "4px 10px",
+              borderRadius: "8px",
+              letterSpacing: "0.5px",
+            }}
+          >
+            YouPI-PG
+          </div>
+          <div>
+            <b style={{ fontSize: "1.05rem", color: "#f8fafc" }}>YouPI Payment Gateway</b>
+            <div style={{ fontSize: "0.78rem", color: "#e0f2fe" }}>
+              Direct Escrow Settlement · 0% Payment Gateway Fee · Instant UTR Verification
+            </div>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: "6px" }}>
           <button
             type="button"
-            onClick={() => setMethod("razorpay")}
+            onClick={() => setActiveTab("youpi_intent")}
             style={{
-              background: method === "razorpay" ? "#0284c7" : "rgba(255,255,255,0.1)",
-              color: "#fff",
+              background: activeTab === "youpi_intent" ? "#fff" : "rgba(255,255,255,0.18)",
+              color: activeTab === "youpi_intent" ? "#0284c7" : "#fff",
               border: "none",
               padding: "6px 14px",
               borderRadius: "8px",
               fontSize: "0.82rem",
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: "pointer",
             }}
           >
-            💳 Razorpay Gateway
+            ⚡ UPI App Intent
           </button>
           <button
             type="button"
-            onClick={() => setMethod("upi")}
+            onClick={() => setActiveTab("youpi_qr")}
             style={{
-              background: method === "upi" ? "#0284c7" : "rgba(255,255,255,0.1)",
-              color: "#fff",
+              background: activeTab === "youpi_qr" ? "#fff" : "rgba(255,255,255,0.18)",
+              color: activeTab === "youpi_qr" ? "#0284c7" : "#fff",
               border: "none",
               padding: "6px 14px",
               borderRadius: "8px",
               fontSize: "0.82rem",
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: "pointer",
             }}
           >
-            ⚡ UPI App / QR
+            📷 Scan YouPI QR
           </button>
         </div>
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* Method 1: Razorpay Option */}
-        {method === "razorpay" && (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-              <div
-                style={{
-                  background: "#0284c7",
-                  color: "#fff",
-                  fontWeight: 800,
-                  fontSize: "0.85rem",
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Razorpay
-              </div>
-              <span className="mute" style={{ fontSize: "0.84rem" }}>
-                Accepts Credit/Debit Cards, NetBanking, GPay, PhonePe, Paytm, Cred, and Wallets
-              </span>
-            </div>
-
-            {!razorpaySuccess ? (
-              <div
-                style={{
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "12px",
-                  padding: "18px",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: "1.4rem", marginBottom: "8px" }}>🛡️</div>
-                <b style={{ fontSize: "1.05rem", color: "#0f172a" }}>Razorpay Instant Payment Modal</b>
-                <p className="mute" style={{ maxWidth: "420px", margin: "6px auto 14px", fontSize: "0.85rem" }}>
-                  Amount to charge: <b style={{ color: "#16a34a", fontSize: "1rem" }}>{totalFormatted}</b>. Click below to launch Razorpay Secure Sandbox to authorize the escrow deposit.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={handleSimulateRazorpay}
-                  style={{
-                    background: "#0284c7",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "0.92rem",
-                    padding: "10px 24px",
-                    borderRadius: "8px",
-                    border: "none",
-                    cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)",
-                  }}
-                >
-                  Pay {totalFormatted} via Razorpay ➔
-                </button>
-              </div>
-            ) : (
-              <div
-                style={{
-                  background: "#f0fdf4",
-                  border: "1.5px solid #86efac",
-                  borderRadius: "12px",
-                  padding: "18px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#166534", marginBottom: "10px" }}>
-                  <span style={{ fontSize: "1.2rem" }}>✓</span>
-                  <b style={{ fontSize: "1rem" }}>Razorpay Payment Authorized!</b>
-                </div>
-
-                <div className="mute" style={{ fontSize: "0.84rem", marginBottom: "12px" }}>
-                  Razorpay Payment ID: <code style={{ color: "#0f172a", fontWeight: 700 }}>{simulatedPaymentId}</code>
-                </div>
-
-                <form action={payEventAction.bind(null, eventId)}>
-                  <input type="hidden" name="reference" value={simulatedPaymentId} />
-                  <SubmitBtn pendingText="Finalizing event creation...">
-                    Confirm & Submit Event for Admin Approval ➔
-                  </SubmitBtn>
-                </form>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Method 2: UPI Direct Transfer */}
-        {method === "upi" && (
-          <div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "18px",
-                alignItems: "center",
-              }}
-            >
+        {/* Tab 1: UPI App Intent Flow */}
+        {activeTab === "youpi_intent" && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "20px",
+              alignItems: "center",
+            }}
+          >
+            <div>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "0.88rem" }}>
                 <div>
                   <span className="mute">Admin Payee:</span> <b>{adminName}</b>
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span className="mute">Admin UPI VPA:</span>{" "}
+                  <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
+                    {adminUpiId}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyVpa}
+                    className="btn ghost sm"
+                    style={{ padding: "2px 8px", fontSize: "0.75rem" }}
+                  >
+                    {copied ? "✓ Copied" : "Copy"}
+                  </button>
+                </div>
                 <div>
                   <span className="mute">Admin UPI Number:</span>{" "}
-                  <b style={{ color: "#0284c7", fontSize: "0.98rem" }}>{adminUpiNumber}</b>
+                  <b style={{ color: "#0284c7" }}>{adminUpiNumber}</b>
                 </div>
                 <div>
-                  <span className="mute">Admin UPI ID / VPA:</span>{" "}
-                  <b style={{ color: "#0f172a" }}>{adminUpiId}</b>
-                </div>
-                <div>
-                  <span className="mute">Total to Transfer:</span>{" "}
-                  <b style={{ color: "#16a34a", fontSize: "1.1rem" }}>{totalFormatted}</b>
-                </div>
-
-                <div style={{ marginTop: "8px" }}>
-                  <a
-                    href={upiLink}
-                    className="btn"
-                    style={{
-                      background: "#059669",
-                      color: "#fff",
-                      fontWeight: 700,
-                      padding: "10px 18px",
-                      borderRadius: "8px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      textDecoration: "none",
-                      boxShadow: "0 4px 12px rgba(5,150,105,0.25)",
-                    }}
-                  >
-                    🚀 Open in UPI App (GPay / PhonePe / Paytm)
-                  </a>
+                  <span className="mute">Total Escrow Amount:</span>{" "}
+                  <b style={{ color: "#16a34a", fontSize: "1.15rem" }}>{totalFormatted}</b>{" "}
+                  <span className="mute" style={{ fontSize: "0.78rem" }}>(15% platform fee included)</span>
                 </div>
               </div>
 
-              {/* QR Code */}
-              <div style={{ textAlign: "center" }}>
-                <div
+              <div style={{ marginTop: "16px" }}>
+                <a
+                  href={upiLink}
+                  className="btn"
                   style={{
-                    display: "inline-block",
-                    padding: "8px",
-                    background: "#fff",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                    border: "1px solid #e2e8f0",
+                    background: "#0284c7",
+                    color: "#fff",
+                    fontWeight: 700,
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    textDecoration: "none",
+                    boxShadow: "0 4px 14px rgba(2, 132, 199, 0.3)",
                   }}
                 >
-                  <img
-                    src={qrUrl}
-                    alt="Scan UPI QR"
-                    width={150}
-                    height={150}
-                    style={{ display: "block", borderRadius: "8px" }}
-                  />
-                </div>
-                <div className="mute" style={{ fontSize: "0.76rem", marginTop: "6px" }}>
-                  Scan with any UPI camera
-                </div>
+                  🚀 Open in UPI App (GPay / PhonePe / Paytm / Cred)
+                </a>
               </div>
             </div>
 
-            <form action={payEventAction.bind(null, eventId)} style={{ marginTop: "18px" }}>
-              <div style={{ marginBottom: "12px" }}>
-                <label htmlFor="reference" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                  Transaction UTR / Reference ID
-                </label>
-                <input
-                  id="reference"
-                  name="reference"
-                  defaultValue={initialUtr}
-                  placeholder="12-digit UPI reference ID"
-                  style={{
-                    width: "100%",
-                    marginTop: "4px",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #cbd5e1",
-                    fontFamily: "monospace",
-                  }}
-                />
-                <span className="mute" style={{ fontSize: "0.75rem" }}>
-                  Auto-filled with simulated UTR, or paste the 12-digit UTR from your bank/UPI app.
-                </span>
-              </div>
-
-              <SubmitBtn pendingText="Verifying payment...">
-                Confirm Payment & Submit Event ➔
-              </SubmitBtn>
-            </form>
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                padding: "14px",
+                fontSize: "0.82rem",
+              }}
+            >
+              <b style={{ color: "#0f172a" }}>How YouPI-PG Gateway Works:</b>
+              <ol style={{ margin: "6px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <li>Tap the button above to launch your installed UPI app.</li>
+                <li>Transfer exactly <b>{totalFormatted}</b> to the Admin VPA.</li>
+                <li>Copy the <b>12-digit UTR (UPI Reference ID)</b> from your bank SMS/app.</li>
+                <li>Submit below to finalize your event creation for Admin approval.</li>
+              </ol>
+            </div>
           </div>
         )}
+
+        {/* Tab 2: YouPI QR Code Flow */}
+        {activeTab === "youpi_qr" && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "20px",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "10px",
+                  background: "#fff",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <img
+                  src={qrUrl}
+                  alt="YouPI-PG Dynamic QR"
+                  width={160}
+                  height={160}
+                  style={{ display: "block", borderRadius: "8px" }}
+                />
+              </div>
+              <div className="mute" style={{ fontSize: "0.76rem", marginTop: "6px" }}>
+                Scan using any UPI App Camera (PhonePe, GPay, Paytm, BHIM)
+              </div>
+            </div>
+
+            <div style={{ fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <b>Scan to Pay {totalFormatted}</b>
+              <div className="mute" style={{ fontSize: "0.84rem" }}>
+                VPA: <b>{adminUpiId}</b> · Payee: <b>{adminName}</b>
+              </div>
+              <p className="mute" style={{ margin: "6px 0", fontSize: "0.82rem" }}>
+                Direct NPCI dynamic QR routing directly to the Admin escrow account. Instant settlement with 0% gateway commission deduction.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* UTR Submission Form */}
+        <form action={payEventAction.bind(null, eventId)} style={{ marginTop: "20px", borderTop: "1px solid #e2e8f0", paddingTop: "16px" }}>
+          <div style={{ marginBottom: "12px" }}>
+            <label htmlFor="reference" style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>
+              Enter 12-Digit Bank UTR / UPI Reference ID
+            </label>
+            <input
+              id="reference"
+              name="reference"
+              value={utrClaim}
+              onChange={(e) => setUtrClaim(e.target.value)}
+              placeholder="e.g. 430129481923"
+              required
+              style={{
+                width: "100%",
+                marginTop: "6px",
+                padding: "9px 12px",
+                borderRadius: "8px",
+                border: "1.5px solid #cbd5e1",
+                fontFamily: "monospace",
+                fontSize: "0.95rem",
+              }}
+            />
+            <div className="mute" style={{ fontSize: "0.75rem", marginTop: "4px" }}>
+              Pre-filled with simulated YouPI UTR reference, or paste the 12-digit UTR from your bank transaction.
+            </div>
+          </div>
+
+          <SubmitBtn pendingText="Verifying with YouPI Gateway...">
+            Submit Payment & Send Event for Admin Approval ➔
+          </SubmitBtn>
+        </form>
       </div>
     </div>
   );
