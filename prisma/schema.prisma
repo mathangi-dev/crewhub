@@ -34,6 +34,10 @@ model User {
   bankIfsc        String        @default("")
   upiId           String        @default("")
   upiNumber       String        @default("")
+  age             Int?
+  gender          String        @default("")
+  phone           String        @default("")
+  website         String        @default("")
   latitude        Float?
   longitude       Float?
   lastLocationAt  DateTime?
@@ -42,6 +46,7 @@ model User {
   applications    Application[]
   sentTransactions     Transaction[] @relation("SentTransactions")
   receivedTransactions Transaction[] @relation("ReceivedTransactions")
+  supportQueries       SupportQuery[]
 }
 
 model Event {
@@ -157,5 +162,18 @@ model Transaction {
   fromUser      User?     @relation("SentTransactions", fields: [fromUserId], references: [id])
   toUser        User?     @relation("ReceivedTransactions", fields: [toUserId], references: [id])
   event         Event?    @relation(fields: [eventId], references: [id])
+}
+
+model SupportQuery {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject    String
+  category   String    @default("QUERY") // QUERY | COMPLAINT | PAYMENT | URGENT
+  message    String
+  answer     String?
+  answeredAt DateTime?
+  status     String    @default("OPEN") // OPEN | ANSWERED | RESOLVED
+  createdAt  DateTime  @default(now())
 }
 

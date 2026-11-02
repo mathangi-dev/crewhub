@@ -32,17 +32,18 @@ const daysFromNow = (days: number, h = 10, m = 0) => {
 }
 
 async function main() {
-  for (const m of [db.notification, db.application, db.eventRole, db.event, db.auditLog, db.user]) {
+  for (const m of [db.supportQuery, db.report, db.transaction, db.notification, db.application, db.eventRole, db.event, db.auditLog, db.user]) {
     await (m as any).deleteMany()
   }
 
   const password = await bcrypt.hash("password123", 10)
   const mk = (data: any) => db.user.create({ data: { password, ...data } })
 
-  await mk({
+  const admin = await mk({
     email: "admin@eventlink.test",
     name: "Admin",
     role: "ADMIN",
+    phone: "8220324140",
     ...bank("CrewHub Admin", "50100432198765"),
     upiNumber: "8220324140",
     upiId: "8220324140@upi",
@@ -53,7 +54,9 @@ async function main() {
     name: "Meera",
     role: "ORGANIZER",
     orgName: "Stagecraft Events",
-    verifyInfo: "stagecraft.example · 40+ events",
+    phone: "8838617672",
+    website: "https://stagecraft.example",
+    verifyInfo: "stagecraft.example · 40+ events hosted across Tamil Nadu · Reg. TN-2021-987",
     verified: true,
     approval: "APPROVED",
     city: "Chennai",
@@ -67,7 +70,9 @@ async function main() {
     name: "Nimbus Events",
     role: "ORGANIZER",
     orgName: "Nimbus Events",
-    verifyInfo: "Reg. TN-2022-1180 · 6 past events",
+    phone: "9876512340",
+    website: "https://nimbusevents.in",
+    verifyInfo: "Reg. TN-2022-1180 · 6 past events in Coimbatore & Salem",
     city: "Chennai"
   })
 
@@ -87,7 +92,10 @@ async function main() {
       role: "VOLUNTEER",
       city,
       approval: "APPROVED",
-      skills: "ushering, registration",
+      skills: "ushering, registration, crowd management",
+      age: 22,
+      gender: "Male",
+      phone: `98765${acct.slice(-5)}`,
       termsVersion: "1.0",
       termsAcceptedAt: new Date(),
       ...coords,
@@ -96,20 +104,56 @@ async function main() {
     })
   }
 
-  const arjun = await vol("vol@eventlink.test", "Arjun", "501002003004")
-  const priya = await vol("priya@eventlink.test", "Priya", "501002003005", { skills: "hospitality" })
-  const karthik = await vol("karthik@eventlink.test", "Karthik", "501002003006")
-  const sneha = await vol("sneha@eventlink.test", "Sneha", "501002003007")
-  const ravi = await vol("ravi@eventlink.test", "Ravi", "602003004005")
-  const divya = await vol("divya@eventlink.test", "Divya", "501002003008", { city: "Coimbatore" })
-  const ananya = await vol("ananya@eventlink.test", "Ananya", "501002003009", { city: "Salem" })
-  const vikram = await vol("vikram@eventlink.test", "Vikram", "501002003010", { city: "Erode" })
-  const deepak = await vol("deepak@eventlink.test", "Deepak", "501002003011", { city: "Coimbatore" })
-  const pooja = await vol("pooja@eventlink.test", "Pooja", "501002003012", { city: "Salem" })
-  const suresh = await vol("suresh@eventlink.test", "Suresh", "501002003013", { city: "Erode" })
-  const meenakshi = await vol("meenakshi@eventlink.test", "Meenakshi", "501002003014")
+  const arjun = await vol("vol@eventlink.test", "Arjun", "501002003004", { age: 21, gender: "Male" })
+  const priya = await vol("priya@eventlink.test", "Priya", "501002003005", { skills: "hospitality, help desk", age: 23, gender: "Female" })
+  const karthik = await vol("karthik@eventlink.test", "Karthik", "501002003006", { age: 22, gender: "Male" })
+  const sneha = await vol("sneha@eventlink.test", "Sneha", "501002003007", { age: 20, gender: "Female" })
+  const ravi = await vol("ravi@eventlink.test", "Ravi", "602003004005", { age: 24, gender: "Male" })
+  const divya = await vol("divya@eventlink.test", "Divya", "501002003008", { city: "Coimbatore", age: 22, gender: "Female" })
+  const ananya = await vol("ananya@eventlink.test", "Ananya", "501002003009", { city: "Salem", age: 21, gender: "Female" })
+  const vikram = await vol("vikram@eventlink.test", "Vikram", "501002003010", { city: "Erode", age: 25, gender: "Male" })
+  const deepak = await vol("deepak@eventlink.test", "Deepak", "501002003011", { city: "Coimbatore", age: 23, gender: "Male" })
+  const pooja = await vol("pooja@eventlink.test", "Pooja", "501002003012", { city: "Salem", age: 22, gender: "Female" })
+  const suresh = await vol("suresh@eventlink.test", "Suresh", "501002003013", { city: "Erode", age: 24, gender: "Male" })
+  const meenakshi = await vol("meenakshi@eventlink.test", "Meenakshi", "501002003014", { age: 21, gender: "Female" })
 
-  await vol("rahul@eventlink.test", "Rahul", "501002003099", { suspended: true })
+  const rahul = await vol("rahul@eventlink.test", "Rahul", "501002003099", { suspended: true, absences: 3, age: 24, gender: "Male" })
+
+  // Seed complaints against suspended volunteer
+  await db.report.create({
+    data: {
+      reporterId: org.id,
+      targetType: "VOLUNTEER",
+      targetId: rahul.id,
+      reason: "Repeated no-show for 3 shifts without prior intimation to event coordinator.",
+      status: "OPEN"
+    }
+  })
+
+  // Seed sample support queries & complaints
+  await db.supportQuery.create({
+    data: {
+      userId: org.id,
+      subject: "Inquiry on bulk volunteer requirement for Foodishh Expo",
+      category: "URGENT",
+      message: "We need 25 volunteers for our upcoming Foodishh festival. Can we request priority notifications for Coimbatore colleges?",
+      answer: "Hello Meera, our location tracking automatically prioritizes volunteers within 20km radius in Coimbatore. Your event is published and live!",
+      answeredAt: new Date(),
+      status: "ANSWERED"
+    }
+  })
+
+  await db.supportQuery.create({
+    data: {
+      userId: arjun.id,
+      subject: "Payout inquiry for Kreya Art Expo shift",
+      category: "PAYMENT",
+      message: "Hi Admin, I completed my 12-hour shift at Kreya Art Expo on time. Please confirm when the bulk payout will be transferred to my UPI.",
+      answer: "Hi Arjun, Kreya Art Expo attendances are verified and your payout is processed directly to your UPI.",
+      answeredAt: new Date(),
+      status: "ANSWERED"
+    }
+  })
 
   const volunteers = [arjun, priya, karthik, sneha, ravi, divya, ananya, vikram, deepak, pooja, suresh, meenakshi]
 

@@ -37,10 +37,32 @@ export async function logout() { cookies().delete("el"); redirect("/") }
 
 export async function saveProfile(f: FormData) {
   const u = await me(); if (!u) redirect("/login")
-  const d: any = { name: s(f, "name"), city: s(f, "city"), bio: s(f, "bio") }
-  if (u.role === "VOLUNTEER") Object.assign(d, { skills: s(f, "skills"), interests: s(f, "interests"), availability: s(f, "availability") })
-  else Object.assign(d, { orgName: s(f, "orgName"), verifyInfo: s(f, "verifyInfo") })
+  const phone = s(f, "phone")
+  const upiId = s(f, "upiId").toLowerCase()
+  const upiNumber = s(f, "upiNumber").replace(/[\s-]/g, "")
+  const d: any = { name: s(f, "name"), city: s(f, "city"), bio: s(f, "bio"), phone }
+  if (upiId) d.upiId = upiId
+  if (upiNumber) d.upiNumber = upiNumber
+
+  if (u.role === "VOLUNTEER") {
+    const rawAge = parseInt(s(f, "age"))
+    Object.assign(d, {
+      skills: s(f, "skills"),
+      interests: s(f, "interests"),
+      availability: s(f, "availability"),
+      gender: s(f, "gender"),
+      age: isNaN(rawAge) ? null : rawAge
+    })
+  } else {
+    Object.assign(d, {
+      orgName: s(f, "orgName"),
+      verifyInfo: s(f, "verifyInfo"),
+      website: s(f, "website")
+    })
+  }
   await db.user.update({ where: { id: u.id }, data: d }); revalidatePath("/", "layout")
+  const back = u.role === "ORGANIZER" ? "/organizer/profile" : "/volunteer/profile"
+  redirect(`${back}?saved=1`)
 }
 
 async function saveImage(f: FormDataEntryValue | null) {
@@ -258,7 +280,31 @@ export async function markAbsent(id: string, on: boolean) {
 export async function userAct(id: string, kind: "APPROVED" | "REJECTED" | "SUSPEND" | "REINSTATE") {
   const a = await need("ADMIN"); const t = await db.user.findUnique({ where: { id } }); if (!t || t.role === "ADMIN") return
   const data: any = kind === "APPROVED" ? { approval: "APPROVED", verified: t.role === "ORGANIZER" } : kind === "REJECTED" ? { approval: "REJECTED", verified: false } : { suspended: kind === "SUSPEND", ...(kind === "REINSTATE" ? { absences: 0 } : {}) }
-  await db.user.update({ where: { id }, data }); await log(a.id, `${kind}:${t.email}`); revalidatePath("/admin", "layout")
+  await db.user.update({ where: { id }, data }); await log(a.id, `${kind}:${t.email}`);
+  
+  if (kind === "APPROVED") {
+    await notifyUser({
+      userId: t.id,
+      title: `🎉 Account Approved!`,
+      message: `Your ${t.role.toLowerCase()} account has been verified and approved by the CrewHub Admin. Welcome aboard!`,
+      link: t.role === "ORGANIZER" ? "/organizer" : "/volunteer/events"
+    }).catch(console.error)
+  } else if (kind === "SUSPEND") {
+    await notifyUser({
+      userId: t.id,
+      title: `⚠️ Account Deactivated / Suspended`,
+      message: `Your account has been deactivated due to absence policy or complaint reviews. Contact admin for reinstatement.`,
+      link: t.role === "ORGANIZER" ? "/organizer?tab=contact" : "/volunteer/contact"
+    }).catch(console.error)
+  } else if (kind === "REINSTATE") {
+    await notifyUser({
+      userId: t.id,
+      title: `✅ Account Reinstated!`,
+      message: `Your account has been reinstated and absence records reset by Admin. You can now participate again.`,
+      link: t.role === "ORGANIZER" ? "/organizer" : "/volunteer/events"
+    }).catch(console.error)
+  }
+  revalidatePath("/admin", "layout")
 }
 export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
   const a = await need("ADMIN"); const e = await db.event.findUnique({ where: { id } }); if (!e || e.status !== "PENDING") return
@@ -266,8 +312,24 @@ export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
     if (e.payStatus !== "PAID") return;
     await db.event.update({ where: { id }, data: { status: "PUBLISHED" } })
     await dispatchNearbyEventNotifications(e.id).catch(console.error)
+    await notifyUser({
+      userId: e.organizerId,
+      eventId: e.id,
+      title: `🎉 Event Approved & Published: ${e.title}`,
+      message: `Your event "${e.title}" in ${e.city} has been approved by Admin and published to nearby volunteers!`,
+      link: `/organizer?tab=manage&event=${e.id}`
+    }).catch(console.error)
   }
-  else await db.event.update({ where: { id }, data: { status: "REJECTED", payStatus: e.payStatus === "PAID" ? "REFUNDED" : e.payStatus } })
+  else {
+    await db.event.update({ where: { id }, data: { status: "REJECTED", payStatus: e.payStatus === "PAID" ? "REFUNDED" : e.payStatus } })
+    await notifyUser({
+      userId: e.organizerId,
+      eventId: e.id,
+      title: `❌ Event Rejected: ${e.title}`,
+      message: `Your event "${e.title}" was rejected by Admin.${e.payStatus === "PAID" ? " The payment will be refunded." : ""}`,
+      link: `/organizer?tab=events`
+    }).catch(console.error)
+  }
   await log(a.id, `${kind}:${e.title}`); revalidatePath("/", "layout")
 }
 const payable = (id: string) => db.event.findUnique({ where: { id }, include: { roles: { include: { applications: { include: { user: true } } } } } })
@@ -441,6 +503,107 @@ export async function markAllNotificationsRead() {
     where: { userId: u.id, isRead: false },
     data: { isRead: true }
   })
+  revalidatePath("/", "layout")
+}
+
+// Support Queries & Complaints System
+export async function submitQuery(f: FormData) {
+  const u = await me()
+  if (!u) redirect("/login")
+  const subject = s(f, "subject")
+  const category = s(f, "category") || "QUERY"
+  const message = s(f, "message")
+  if (!subject || !message) return
+
+  const q = await db.supportQuery.create({
+    data: {
+      userId: u.id,
+      subject,
+      category,
+      message,
+      status: "OPEN"
+    }
+  })
+
+  // Send high-priority notification to Admins
+  await notifyAdmins({
+    title: `📩 New ${category}: ${subject}`,
+    message: `From ${u.name} (${u.role}): "${message.slice(0, 80)}..."`,
+    link: `/admin/queries?id=${q.id}`
+  }).catch(console.error)
+
+  const back = u.role === "ORGANIZER" ? "/organizer?tab=contact&sent=1" : "/volunteer/contact?sent=1"
+  revalidatePath("/", "layout")
+  redirect(back)
+}
+
+export async function answerQuery(queryId: string, f: FormData) {
+  const a = await need("ADMIN")
+  const answer = s(f, "answer")
+  if (!answer) return
+
+  const q = await db.supportQuery.findUnique({ where: { id: queryId }, include: { user: true } })
+  if (!q) return
+
+  await db.supportQuery.update({
+    where: { id: queryId },
+    data: {
+      answer,
+      answeredAt: new Date(),
+      status: "ANSWERED"
+    }
+  })
+
+  // Notify the user who asked
+  await notifyUser({
+    userId: q.userId,
+    title: `💬 Admin Response: ${q.subject}`,
+    message: `Admin replied to your ${q.category.toLowerCase()}: "${answer.slice(0, 100)}..."`,
+    link: q.user.role === "ORGANIZER" ? "/organizer?tab=contact" : "/volunteer/contact"
+  }).catch(console.error)
+
+  await log(a.id, `answered-query:${q.id}`)
+  revalidatePath("/admin/queries")
+  revalidatePath("/", "layout")
+}
+
+export async function resolveQuery(queryId: string) {
+  const a = await need("ADMIN")
+  await db.supportQuery.update({
+    where: { id: queryId },
+    data: { status: "RESOLVED" }
+  })
+  await log(a.id, `resolved-query:${queryId}`)
+  revalidatePath("/admin/queries")
+  revalidatePath("/", "layout")
+}
+
+export async function fileComplaint(f: FormData) {
+  const u = await me()
+  if (!u) redirect("/login")
+  const volunteerId = s(f, "volunteerId")
+  const reason = s(f, "reason")
+  if (!volunteerId || !reason) return
+
+  const targetVol = await db.user.findUnique({ where: { id: volunteerId } })
+  if (!targetVol) return
+
+  await db.report.create({
+    data: {
+      reporterId: u.id,
+      targetType: "VOLUNTEER",
+      targetId: volunteerId,
+      reason,
+      status: "OPEN"
+    }
+  })
+
+  await notifyAdmins({
+    title: `⚠️ Complaint Filed against ${targetVol.name}`,
+    message: `${u.name} (${u.role}) filed a complaint: "${reason}". Review volunteer profile.`,
+    link: `/admin/volunteers?id=${targetVol.id}`
+  }).catch(console.error)
+
   revalidatePath("/", "layout")
 }
 

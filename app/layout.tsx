@@ -1,8 +1,8 @@
 import "./globals.css"; import Link from "next/link"; import { me } from "@/lib/auth"; import { logout } from "./actions"; import NavTabs from "@/components/NavTabs"; import AvatarMenu from "@/components/AvatarMenu"; import NotificationBell from "@/components/NotificationBell"; import { Suspense } from "react"; import { sweepAbsences } from "@/lib/absence"
 export const metadata = { title: "CrewHub", description: "Find Work. Build Experience." }
-const ADMIN = [["/admin/volunteers", "Volunteers"], ["/admin/organizers", "Organizers"], ["/admin/events", "Events"], ["/admin/payments", "Payments"], ["/admin/payouts", "Payouts"]]
-const ORG = [["/organizer?tab=create", "Create Event"], ["/organizer?tab=manage", "Manage Events"], ["/organizer?tab=events", "My Events"], ["/organizer?tab=history", "History"], ["/organizer?tab=payments", "Payments"]]
-const VOL = [["/volunteer/events", "Events"], ["/volunteer/my-events", "My Events"], ["/volunteer/applications", "My Applications"], ["/volunteer/history", "Event History"], ["/volunteer/payments", "Payment History"]]
+const ADMIN = [["/admin/volunteers", "Volunteers Approvals"], ["/admin/organizers", "Organizers Approval"], ["/admin/events", "Event Approval"], ["/admin/payments", "Payments"], ["/admin/history", "History"], ["/admin/queries", "Queries & Complaints"]]
+const ORG = [["/organizer?tab=create", "Create Event"], ["/organizer?tab=manage", "Manage Events"], ["/organizer?tab=events", "My Events"], ["/organizer?tab=payments", "Payments"], ["/organizer?tab=contact", "Contact Admin"]]
+const VOL = [["/volunteer/events", "Events"], ["/volunteer/my-events", "My Events"], ["/volunteer/applications", "My Applications"], ["/volunteer/history", "Event History"], ["/volunteer/payments", "Payments"], ["/volunteer/contact", "Contact Admin"]]
 export default async function Layout({ children }: { children: React.ReactNode }) {
   await sweepAbsences(); const u = await me(); const home = u?.role === "ADMIN" ? "/admin" : u?.role === "ORGANIZER" ? "/organizer" : "/volunteer"
   const logo = <Link href="/" className="logo"><img src="/logo.png" alt="" /><span>Crew<b>Hub</b></span></Link>

@@ -14,6 +14,7 @@ import {
   getUpiQrCodeUrl,
   generateUTR,
 } from "@/lib/payment";
+import CheckoutPaymentModule from "@/components/CheckoutPaymentModule";
 
 export default async function Checkout({ params }: { params: { id: string } }) {
   const u = await need("ORGANIZER");
@@ -76,137 +77,22 @@ export default async function Checkout({ params }: { params: { id: string } }) {
           ]}
         />
 
-        {/* Official UPI Payment Box */}
-        <div
-          className="card"
-          style={{
-            margin: "18px 0",
-            background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-            border: "1.5px solid #cbd5e1",
-            borderRadius: "14px",
-            padding: "18px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-            <span style={{ fontSize: "1.3rem" }}>⚡</span>
-            <div>
-              <b style={{ fontSize: "1.05rem", color: "#0f172a" }}>UPI Instant Transfer to Admin</b>
-              <div className="mute" style={{ fontSize: "0.82rem" }}>
-                Pay directly using Google Pay, PhonePe, Paytm, or any UPI app
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
-              alignItems: "center",
-              margin: "14px 0",
-            }}
-          >
-            {/* Payee Details */}
-            <div style={{ fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div>
-                <span className="mute">Payee:</span> <b>{ADMIN_NAME}</b>
-              </div>
-              <div>
-                <span className="mute">Admin UPI Number:</span>{" "}
-                <b style={{ color: "#0284c7", fontSize: "0.98rem" }}>{ADMIN_UPI_NUMBER}</b>
-              </div>
-              <div>
-                <span className="mute">Admin UPI ID:</span>{" "}
-                <b style={{ color: "#0f172a" }}>{ADMIN_UPI_ID}</b>
-              </div>
-              <div>
-                <span className="mute">Amount to Transfer:</span>{" "}
-                <b style={{ color: "#16a34a", fontSize: "1.1rem" }}>{inr(total)}</b>
-              </div>
-
-              {/* Direct UPI App Launch Button */}
-              <div style={{ marginTop: "8px" }}>
-                <a
-                  href={upiLink}
-                  className="btn"
-                  style={{
-                    background: "#059669",
-                    color: "#fff",
-                    fontWeight: 700,
-                    padding: "10px 18px",
-                    borderRadius: "8px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    textDecoration: "none",
-                    boxShadow: "0 4px 12px rgba(5,150,105,0.25)",
-                  }}
-                >
-                  🚀 Open in UPI App (GPay / PhonePe / Paytm)
-                </a>
-              </div>
-            </div>
-
-            {/* QR Code for Mobile Scanning */}
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  display: "inline-block",
-                  padding: "8px",
-                  background: "#fff",
-                  borderRadius: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <img
-                  src={qrUrl}
-                  alt="Scan to pay via UPI"
-                  width={150}
-                  height={150}
-                  style={{ display: "block", borderRadius: "8px" }}
-                />
-              </div>
-              <div className="mute" style={{ fontSize: "0.76rem", marginTop: "6px" }}>
-                Scan with any UPI app camera
-              </div>
-            </div>
-          </div>
-
-          <form action={payEvent.bind(null, e.id)} style={{ marginTop: "14px" }}>
-            <div style={{ marginBottom: "12px" }}>
-              <label htmlFor="reference" style={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                Transaction Reference / UTR Number
-              </label>
-              <input
-                id="reference"
-                name="reference"
-                defaultValue={initialUtr}
-                placeholder="12-digit UPI reference ID (e.g. 430129481923)"
-                style={{
-                  width: "100%",
-                  marginTop: "4px",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid #cbd5e1",
-                  fontFamily: "monospace",
-                }}
-              />
-              <span className="mute" style={{ fontSize: "0.75rem" }}>
-                Auto-generated UTR for instant simulation, or enter the ref ID from your UPI app.
-              </span>
-            </div>
-
-            <div className="acts">
-              <SubmitBtn pendingText="Confirming UPI payment...">
-                Confirm Payment of {inr(total)} & Create Event
-              </SubmitBtn>
-            </div>
-          </form>
-        </div>
+        {/* Dual Payment Options: Razorpay + Direct UPI */}
+        <CheckoutPaymentModule
+          eventId={e.id}
+          total={total}
+          totalFormatted={inr(total)}
+          adminName={ADMIN_NAME}
+          adminUpiId={ADMIN_UPI_ID}
+          adminUpiNumber={ADMIN_UPI_NUMBER}
+          upiLink={upiLink}
+          qrUrl={qrUrl}
+          initialUtr={initialUtr}
+          payEventAction={payEvent}
+        />
 
         <p className="mute">
-          Crew pay is held securely in escrow by the admin and released directly to volunteers upon verified attendance check-in and check-out.
+          Crew pay is held securely in escrow by the admin and released directly to volunteers upon verified attendance check-in and check-out. Absentees and unfilled roles are fully refunded.
         </p>
 
         <div className="acts">

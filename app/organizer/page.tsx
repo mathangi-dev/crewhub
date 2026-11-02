@@ -1,10 +1,10 @@
 import Link from "next/link"; import RoleBuilder from "@/components/RoleBuilder"; import ImageInput from "@/components/ImageInput"
 import LocationPicker from "@/components/LocationPicker"
-import { db } from "@/lib/db"; import { need } from "@/lib/auth"; import { createEvent, cancelEvent, rate, clock, markAbsent, discardDraft } from "../actions"; import { inr, attended, absentNow } from "@/lib/money"; import { sweepAbsences } from "@/lib/absence"; import { LOOK } from "@/lib/look"; import EventCard from "@/components/EventCard"; import { Stats } from "@/components/ui"; import SubmitBtn from "@/components/SubmitBtn"
+import { db } from "@/lib/db"; import { need } from "@/lib/auth"; import { createEvent, cancelEvent, rate, clock, markAbsent, discardDraft, submitQuery } from "../actions"; import { inr, attended, absentNow } from "@/lib/money"; import { sweepAbsences } from "@/lib/absence"; import { LOOK } from "@/lib/look"; import EventCard from "@/components/EventCard"; import { Stats } from "@/components/ui"; import SubmitBtn from "@/components/SubmitBtn"
 const CATS = Object.keys(LOOK)
-const TABS = [["create", "Create Event"], ["manage", "Manage Events"], ["events", "My Events"], ["history", "History"], ["payments", "Payments"]]
+const TABS = [["create", "Create Event"], ["manage", "Manage Events"], ["events", "My Events"], ["payments", "Payments"], ["contact", "Contact Admin"]]
 const hm = (d: Date | null) => (d ? d.toLocaleTimeString("en-IN", { timeStyle: "short" }) : "—")
-export default async function Organizer({ searchParams }: { searchParams: { tab?: string; event?: string; s?: string } }) {
+export default async function Organizer({ searchParams }: { searchParams: { tab?: string; event?: string; s?: string; sent?: string } }) {
   await sweepAbsences(true); const u = await need("ORGANIZER"), tab = TABS.some(t => t[0] === searchParams.tab) ? searchParams.tab! : "create", now = new Date()
   const events = await db.event.findMany({ where: { organizerId: u.id, status: { not: "DRAFT" } }, orderBy: { startsAt: "desc" }, include: { roles: { include: { applications: { include: { user: true } } } } } })
   const past = (e: any) => e.status === "CANCELLED" || e.status === "REJECTED" || e.endsAt < now
@@ -67,27 +67,32 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
             {a.checkOut && <form action={rate.bind(null, a.id)} className="row"><select name="rating" defaultValue={a.rating ?? 5} aria-label="Rating">{[5, 4, 3, 2, 1].map(n => <option key={n}>{n}</option>)}</select><button className="ghost">Rate</button></form>}</div>)}</div>)}</section></>
     })()}
 
-    {tab === "events" && (!active.length ? <p className="card">No upcoming or ongoing events yet.</p> : active.map(e => <section key={e.id} className="evc"><div className="row"><div><b>{e.title}</b> {tag(e)}<div className="mute">{e.venue}, {e.city} · {when(e)}</div></div>
-      <div className="acts"><Link href={`/events/${e.id}`} className="btn">View details</Link><form action={cancelEvent.bind(null, e.id)}><button className="bad">Cancel event</button></form></div></div>
-      {e.roles.map(r => <p key={r.id} className="mute" style={{ margin: "6px 0 0" }}>{r.title} · {hrs(r)} · {acc(r)}/{r.slots} filled</p>)}
-      <div className="role"><div className="row"><span>Crew pay <b>{inr(e.crewTotal)}</b></span><span>Commission <b>{inr(e.commission)}</b></span><span>Total <b>{inr(e.crewTotal + e.commission)}</b></span></div>
-        {e.status === "PENDING" && e.payStatus === "UNPAID" && <Link href={`/organizer/checkout/${e.id}`} className="btn">Pay {inr(e.crewTotal + e.commission)} to continue</Link>}
-        {e.status === "PENDING" && e.payStatus === "PAID" && <p className="mute" style={{ margin: "8px 0 0" }}>Payment received. Waiting for admin approval.</p>}
-        {e.status === "PUBLISHED" && <p className="mute" style={{ margin: "8px 0 0" }}>Paid. The admin pays your crew after the event.</p>}</div></section>))}
-
-    {tab === "history" && (!done.length ? <p className="card">Completed and cancelled events will appear here.</p> : done.map(e => { const rows = e.roles.flatMap(r => r.applications.filter(a => a.status === "ACCEPTED").map(a => ({ a, r }))), comp = label(e) === "COMPLETED"
+    {tab === "events" && (!events.length ? <p className="card">No events created yet. Use the Create Event tab to fund and launch your first event.</p> : events.map(e => {
+      const rows = e.roles.flatMap(r => r.applications.filter(a => a.status === "ACCEPTED").map(a => ({ a, r })))
+      const isEnded = e.endsAt < now
       return <section key={e.id} className="evc"><div className="row"><div><b>{e.title}</b> {tag(e)}<div className="mute">{e.venue}, {e.city} · {when(e)}</div></div>
-        <div style={{ textAlign: "right" }}>
-          {comp && <div className="mute" style={{ marginBottom: "6px" }}>Paid out ₹{rows.filter(x => x.a.paid).reduce((n, x) => n + x.a.payout, 0)}{e.refunded > 0 && ` · Refunded to you ₹${e.refunded}`}</div>}
-          {rows.length > 0 && <a href={`/api/export/crew?eventId=${e.id}`} className="btn ghost" style={{ padding: "4px 12px", fontSize: "0.8rem" }} download>📥 Export Roster (CSV)</a>}
+      <div className="acts" style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+        <Link href={`/events/${e.id}`} className="btn ghost" style={{ padding: "6px 14px", fontSize: "0.85rem" }}>View Public Card</Link>
+        {rows.length > 0 && <a href={`/api/export/crew?eventId=${e.id}`} className="btn" style={{ padding: "6px 14px", fontSize: "0.85rem", background: "#0284c7" }} download>📥 Attendance CSV</a>}
+        {e.status === "PENDING" && <form action={cancelEvent.bind(null, e.id)}><button className="bad" style={{ padding: "6px 14px", fontSize: "0.85rem" }}>Cancel</button></form>}
+      </div></div>
+      {e.roles.map(r => <p key={r.id} className="mute" style={{ margin: "4px 0 0" }}>{r.title} · {hrs(r)} · {acc(r)}/{r.slots} filled</p>)}
+      <div className="role" style={{ marginTop: "12px" }}>
+        <div className="row">
+          <span>Crew pay <b>{inr(e.crewTotal)}</b></span>
+          <span>Platform fee (15%) <b>{inr(e.commission)}</b></span>
+          <span>Total paid <b>{inr(e.crewTotal + e.commission)}</b></span>
+          {e.refunded > 0 && <span style={{ color: "#16a34a" }}>Refunded: <b>{inr(e.refunded)}</b></span>}
         </div>
-      </div>
-        {!rows.length && <p className="mute">No participants.</p>}
-        {rows.map(({ a, r }) => <div key={a.id} className="app"><span className="av">{a.user.name[0]}</span><div className="who"><b>{a.user.name}</b><div className="mute">{r.title}{comp && ` · ${hrs(r)}`}</div></div>
-          <span className="mute">{attended(a) ? `In ${hm(a.checkIn)} · Out ${hm(a.checkOut)}` : "Absent"}</span>{a.rating && <span className="tag">★ {a.rating}</span>}
-          {comp && (a.paid ? <span className="tag ok">Paid ₹{a.payout}</span> : e.crewTotal === 0 ? <span className="tag">Volunteer</span> : !attended(a) ? <span className="tag bad">No payout</span> : <span className="tag">Payout pending</span>)}</div>)}</section> }))}
+        {e.status === "PENDING" && e.payStatus === "UNPAID" && <Link href={`/organizer/checkout/${e.id}`} className="btn" style={{ marginTop: "10px" }}>Pay {inr(e.crewTotal + e.commission)} to continue</Link>}
+        {e.status === "PENDING" && e.payStatus === "PAID" && <p className="mute" style={{ margin: "8px 0 0" }}>Payment completed (15% platform fee included). Awaiting Admin review & publishing.</p>}
+        {e.status === "PUBLISHED" && !isEnded && <p className="mute" style={{ margin: "8px 0 0" }}>Live & Published. You can manage attendance in the Manage Events tab.</p>}
+        {isEnded && <p className="mute" style={{ margin: "8px 0 0" }}>Event completed. Checked-out crew members are paid by Admin.</p>}
+      </div></section>}))}
 
     {tab === "payments" && await Payments(u.id, searchParams.s)}
+
+    {tab === "contact" && await ContactAdmin(u.id, searchParams.sent)}
   </>
 }
 
@@ -103,10 +108,104 @@ async function Payments(organizerId: string, f?: string) {
   const refund = (e: any) => (e.payStatus === "REFUNDED" ? total(e) : e.refunded || 0)
   const kinds: Record<string, (e: any) => boolean> = { paid: e => e.payStatus === "PAID", pending: e => e.payStatus === "UNPAID", refund: e => refund(e) > 0 }
   const sum = (k: string, g: (e: any) => number) => all.filter(kinds[k]).reduce((n, e) => n + g(e), 0), cnt = (k: string) => all.filter(kinds[k]).length
-  const items: [string, string, number, number][] = [["paid", "Payment done", sum("paid", total), cnt("paid")], ["pending", "Payment pending", sum("pending", total), cnt("pending")], ["refund", "Refunded by admin", sum("refund", refund), cnt("refund")]]
+  const items: [string, string, number, number][] = [["paid", "Payment done", sum("paid", total), cnt("paid")], ["pending", "Payment pending", sum("pending", total), cnt("pending")], ["refund", "Refunded for absentees", sum("refund", refund), cnt("refund")]]
   const sel = f && kinds[f] ? f : "", list = sel ? all.filter(kinds[sel]) : all
   return <><div className="stats">{items.map(([k, l, amt, n]) => <Link key={k} href={sel === k ? "/organizer?tab=payments" : `/organizer?tab=payments&s=${k}`} className={`card${sel === k ? " on" : ""}`}><b>{inr(amt)}</b>{l}<div className="mute">{n} {n === 1 ? "event" : "events"}</div></Link>)}</div>
     {!list.length ? <p className="card">No payments yet.</p> : list.map(e => <div key={e.id} className="card row"><div><b>{e.title}</b> {e.payStatus === "PAID" && <span className="tag ok">PAYMENT DONE</span>}{e.payStatus === "UNPAID" && <span className="tag bad">PAYMENT PENDING</span>}{e.payStatus === "REFUNDED" && <span className="tag">REFUNDED</span>}{e.payStatus === "PAID" && e.refunded > 0 && <> <span className="tag">REFUND {inr(e.refunded)}</span></>}
       <div className="mute">{e.startsAt.toLocaleDateString("en-IN")} · Crew {inr(e.crewTotal)} + fee {inr(e.commission)}{e.paidAt ? ` · Paid ${e.paidAt.toLocaleDateString("en-IN")}` : ""}{e.refundedAt && e.refunded > 0 ? ` · Refunded ${e.refundedAt.toLocaleDateString("en-IN")}` : ""}</div></div>
       <div className="acts"><b>{inr(total(e))}</b>{e.payStatus === "UNPAID" && <><Link href={`/organizer/checkout/${e.id}`} className="btn">Pay now</Link>{e.status === "DRAFT" && <form action={discardDraft.bind(null, e.id, "/organizer?tab=payments")}><button className="ghost bad">Discard</button></form>}</>}</div></div>)}</>
 }
+
+// Contact Admin Form & History
+async function ContactAdmin(userId: string, sent?: string) {
+  const queries = await db.supportQuery.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" }
+  })
+
+  return (
+    <>
+      {sent && (
+        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "12px 18px", marginBottom: "18px", color: "#065f46", fontSize: "0.9rem" }}>
+          ✓ <b>Query / Complaint Sent Successfully!</b> The Admin has received your message and will review it promptly. You will get an in-app notification when answered.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", alignItems: "start" }}>
+        {/* Submission Form */}
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Contact Admin</h2>
+          <p className="mute">Submit any query, complaint, payment dispute, or crowd requirement assistance directly to the Admin team.</p>
+
+          <form action={submitQuery} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div>
+              <label htmlFor="subject" style={{ fontWeight: 600, display: "block", marginBottom: "4px" }}>Subject</label>
+              <input id="subject" name="subject" placeholder="Brief summary of your query or issue" required style={{ width: "100%" }} />
+            </div>
+
+            <div>
+              <label htmlFor="category" style={{ fontWeight: 600, display: "block", marginBottom: "4px" }}>Category</label>
+              <select id="category" name="category" defaultValue="QUERY" style={{ width: "100%" }}>
+                <option value="QUERY">General Query</option>
+                <option value="COMPLAINT">Complaint regarding volunteer</option>
+                <option value="PAYMENT">Payment & Refund inquiry</option>
+                <option value="URGENT">Urgent Crowd Management Request</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="message" style={{ fontWeight: 600, display: "block", marginBottom: "4px" }}>Message / Details</label>
+              <textarea id="message" name="message" rows={4} placeholder="Describe your query or complaint in detail..." required style={{ width: "100%" }} />
+            </div>
+
+            <div style={{ marginTop: "6px" }}>
+              <SubmitBtn pendingText="Sending to Admin...">Send to Admin ✉</SubmitBtn>
+            </div>
+          </form>
+        </div>
+
+        {/* Previous Messages & Responses */}
+        <div>
+          <h2>Your Queries & Complaints History</h2>
+          <p className="mute">Track responses from the Admin.</p>
+
+          {!queries.length ? (
+            <p className="card mute">You have not submitted any queries or complaints yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {queries.map(q => (
+                <div key={q.id} className="card" style={{ padding: "14px 18px", borderLeft: q.status === "ANSWERED" ? "4px solid #16a34a" : "4px solid #eab308" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <b>{q.subject}</b>
+                    <span className={`tag ${q.status === "ANSWERED" ? "ok" : ""}`}>{q.status}</span>
+                  </div>
+                  <div className="mute" style={{ fontSize: "0.8rem", marginBottom: "8px" }}>
+                    Category: <b>{q.category}</b> · Sent on {q.createdAt.toLocaleDateString("en-IN")} at {q.createdAt.toLocaleTimeString("en-IN", { timeStyle: "short" })}
+                  </div>
+                  <p style={{ margin: "4px 0 10px", fontSize: "0.9rem" }}>{q.message}</p>
+
+                  {q.answer ? (
+                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "10px 14px", marginTop: "8px" }}>
+                      <b style={{ color: "#166534", fontSize: "0.85rem" }}>💬 Admin Response:</b>
+                      <p style={{ margin: "4px 0 0", color: "#14532d", fontSize: "0.9rem" }}>{q.answer}</p>
+                      {q.answeredAt && (
+                        <div className="mute" style={{ fontSize: "0.75rem", marginTop: "4px" }}>
+                          Answered on {q.answeredAt.toLocaleDateString("en-IN")} at {q.answeredAt.toLocaleTimeString("en-IN", { timeStyle: "short" })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mute" style={{ fontSize: "0.82rem", fontStyle: "italic" }}>
+                      ⏳ Awaiting response from Admin...
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
