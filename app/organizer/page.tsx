@@ -1,6 +1,6 @@
 import Link from "next/link"; import RoleBuilder from "@/components/RoleBuilder"; import ImageInput from "@/components/ImageInput"
 import LocationPicker from "@/components/LocationPicker"
-import { db } from "@/lib/db"; import { need } from "@/lib/auth"; import { createEvent, cancelEvent, rate, clock, markAbsent, discardDraft, submitQuery } from "../actions"; import { inr, attended, absentNow } from "@/lib/money"; import { sweepAbsences } from "@/lib/absence"; import { LOOK } from "@/lib/look"; import EventCard from "@/components/EventCard"; import { Stats } from "@/components/ui"; import SubmitBtn from "@/components/SubmitBtn"
+import { db } from "@/lib/db"; import { need } from "@/lib/auth"; import { createEvent, cancelEvent, rate, clock, markAbsent, discardDraft, submitQuery, approveRecommendedBatch, organizerCancelWorker, decide } from "../actions"; import { inr, attended, absentNow } from "@/lib/money"; import { sweepAbsences } from "@/lib/absence"; import { LOOK } from "@/lib/look"; import EventCard from "@/components/EventCard"; import { Stats } from "@/components/ui"; import SubmitBtn from "@/components/SubmitBtn"
 const CATS = Object.keys(LOOK)
 const TABS = [["create", "Create Event"], ["manage", "Manage Events"], ["events", "My Events"], ["payments", "Payments"], ["contact", "Contact Admin"]]
 const hm = (d: Date | null) => (d ? d.toLocaleTimeString("en-IN", { timeStyle: "short" }) : "—")
@@ -13,10 +13,31 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
   const when = (e: any) => `${e.startsAt.toLocaleString("en-IN")} to ${hm(e.endsAt)}`
   const label = (e: any) => e.status === "CANCELLED" ? "CANCELLED" : e.status === "REJECTED" ? "REJECTED" : e.status === "PENDING" ? (e.payStatus === "PAID" ? "AWAITING APPROVAL" : "PAYMENT DUE") : e.endsAt < now ? "COMPLETED" : e.startsAt <= now ? "ONGOING" : "UPCOMING"
   const tag = (e: any) => <span className={`tag ${label(e) === "CANCELLED" || label(e) === "REJECTED" ? "bad" : e.status === "PUBLISHED" ? "ok" : ""}`}>{label(e)}</span>
-  const hrs = (r: any) => `${r.pay ? `₹${r.pay}` : "Unpaid"}${r.hours ? ` · ${r.hours} hrs` : ""}`
+  const hrs = (r: any) => `${r.pay ? (r.wageType === "HOURLY" ? `₹${r.pay}/hr` : `₹${r.pay} flat`) : "Unpaid"}${r.hours ? ` · ${r.hours} hrs` : ""}`
+  
+  const totalReqAll = events.reduce((sum, e) => sum + e.roles.reduce((rSum: number, r: any) => rSum + r.slots, 0), 0)
+  const totalConfAll = events.reduce((sum, e) => sum + e.roles.reduce((rSum: number, r: any) => rSum + r.applications.filter((a: any) => a.status === "ACCEPTED").length, 0), 0)
+  const totalWaitAll = events.reduce((sum, e) => sum + e.roles.reduce((rSum: number, r: any) => rSum + r.applications.filter((a: any) => a.status === "WAITLISTED").length, 0), 0)
+  const totalCancAll = events.reduce((sum, e) => sum + e.roles.reduce((rSum: number, r: any) => rSum + r.applications.filter((a: any) => a.status === "CANCELLED").length, 0), 0)
+  const totalCheckedInAll = events.reduce((sum, e) => sum + e.roles.reduce((rSum: number, r: any) => rSum + r.applications.filter((a: any) => a.checkIn).length, 0), 0)
+
   return <>
     <div className="dh"><div><span className="mute">Organizer dashboard</span><h1>{u.orgName || u.name} {u.approval === "APPROVED" && <span className="tag ok">Verified</span>}</h1></div></div>
     {u.approval !== "APPROVED" && <p className="card">{u.approval === "REJECTED" ? "Your organizer account was rejected by the admin." : "Your account is waiting for admin approval."} You can create events once you are approved. Add your details and submit them for verification on your Profile page.</p>}
+
+    {/* Organizer Overview Stats */}
+    <div style={{ marginBottom: "20px" }}>
+      <Stats items={[
+        [events.length, "Total Events"],
+        [events.filter(e => e.status === "PUBLISHED").length, "Active Approved"],
+        [events.filter(e => e.status === "PENDING").length, "Pending Approval"],
+        [totalReqAll, "Workers Needed"],
+        [totalConfAll, "Confirmed Crew"],
+        [totalWaitAll, "Waiting List"],
+        [totalCheckedInAll, "Checked-In"],
+        [totalCancAll, "Cancellations"],
+      ]} />
+    </div>
 
     {tab === "create" && <><form action={createEvent} className="newf"><div className="row"><input name="title" placeholder="Event title" required aria-label="Title" /><select name="category" aria-label="Category">{CATS.map(c => <option key={c}>{c}</option>)}</select></div>
       <LocationPicker defaultCity={u.city || "Chennai"} />
@@ -26,14 +47,19 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
 
     {tab === "manage" && (() => {
       const ev = searchParams.event ? events.find(e => e.id === searchParams.event) : null
-      const crew = (r: any) => r.applications.filter((a: any) => a.status === "ACCEPTED") // only volunteers the admin accepted
+      const crew = (r: any) => r.applications.filter((a: any) => a.status === "ACCEPTED")
       if (!ev) return !events.length ? <p className="card">No events yet. Create one first.</p> : <div className="grid">{events.map(e => {
         const total = e.roles.reduce((n, r) => n + r.slots, 0), filled = e.roles.reduce((n, r) => n + acc(r), 0)
-        return <EventCard key={e.id} href={`/organizer?tab=manage&event=${e.id}`} e={e} badge={label(e)} sub={`${filled}/${total} volunteers · ${filled >= total && total > 0 ? "Full" : `${total - filled} needed`} · ${e.roles.reduce((n, r) => n + crew(r).filter((a: any) => a.checkIn).length, 0)} checked in`} />
+        const wait = e.roles.reduce((n, r) => n + r.applications.filter((a: any) => a.status === "WAITLISTED").length, 0)
+        return <EventCard key={e.id} href={`/organizer?tab=manage&event=${e.id}`} e={e} badge={label(e)} sub={`${filled}/${total} confirmed · ${wait} waitlisted · ${e.roles.reduce((n, r) => n + crew(r).filter((a: any) => a.checkIn).length, 0)} checked in`} />
       })}</div>
+
       const all = ev.roles.flatMap(crew)
       const totalReq = ev.roles.reduce((n, r) => n + r.slots, 0)
       const isReqMet = totalReq > 0 && all.length >= totalReq
+      const allWaitlisted = ev.roles.flatMap((r: any) => r.applications.filter((a: any) => a.status === "WAITLISTED"))
+      const allCancelled = ev.roles.flatMap((r: any) => r.applications.filter((a: any) => a.status === "CANCELLED"))
+
       return <><p><Link href="/organizer?tab=manage">← All events</Link></p><section className="evc">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "8px" }}>
           <div>
@@ -49,22 +75,192 @@ export default async function Organizer({ searchParams }: { searchParams: { tab?
         </div>
         {isReqMet && (
           <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "10px 16px", margin: "10px 0 14px", color: "#065f46", fontSize: "0.85rem" }}>
-            <b>All volunteer requirements completed!</b> All {totalReq} crew positions have been filled. You can download the roster containing volunteer names, locations, assigned roles, shift hours, and attendance.
+            <b>All workforce requirements completed!</b> All {totalReq} crew positions have been filled.
           </div>
         )}
-        <Stats items={[[all.length, "Volunteers"], [all.filter((a: any) => a.checkIn).length, "Checked in"], [all.filter((a: any) => a.checkOut).length, "Checked out"], [all.filter((a: any) => absentNow(a, ev)).length, "Absent"]]} />
-        {ev.roles.map(r => <div key={r.id} className="role"><div className="row"><h3>{r.title} <span className="mute">{hrs(r)}</span></h3><span className="mute" style={{ textAlign: "right" }}>{acc(r)}/{r.slots} people</span></div>
-          <div className="bar" role="img" aria-label={`${acc(r)} of ${r.slots} people`}><i style={{ width: `${(acc(r) / r.slots) * 100}%` }} /></div>
-          {!crew(r).length && <p className="mute" style={{ margin: 0 }}>No volunteers assigned yet. The admin assigns approved volunteers to your event.</p>}
-          {crew(r).map((a: any) => <div key={a.id} className="app"><span className="av">{a.user.name[0]}</span>
-            <div className="who"><b>{a.user.name}</b><div className="mute">{a.user.city} · {a.user.skills || "no skills listed"} · {a.checkIn ? `In ${hm(a.checkIn)}` : "Not checked in"}{a.checkOut ? ` · Out ${hm(a.checkOut)}` : ""}</div></div>
-            {(() => { const ab = absentNow(a, ev); return <span className={`tag ${a.checkOut ? "ok" : ab ? "bad" : ""}`}>{attended(a) ? "COMPLETED" : ab ? "ABSENT" : a.checkIn ? "CHECKED IN" : "NOT CHECKED IN"}</span> })()}
-            {!a.checkIn && !absentNow(a, ev) && <form action={clock.bind(null, a.id, "checkIn")}><button>Check in</button></form>}
-            {!a.checkIn && ev.startsAt <= now && !a.absent && !absentNow(a, ev) && <form action={markAbsent.bind(null, a.id, true)}><button className="bad">Absent</button></form>}
-            {a.absent && !a.absentCounted && <form action={markAbsent.bind(null, a.id, false)}><button className="ghost">Undo absent</button></form>}
-            {a.checkIn && !a.checkOut && !absentNow(a, ev) && <form action={clock.bind(null, a.id, "checkOut")}><button>Check out</button></form>}
-            {a.paid && <span className="tag ok">Paid ₹{a.payout}</span>}
-            {a.checkOut && <form action={rate.bind(null, a.id)} className="row"><select name="rating" defaultValue={a.rating ?? 5} aria-label="Rating">{[5, 4, 3, 2, 1].map(n => <option key={n}>{n}</option>)}</select><button className="ghost">Rate</button></form>}</div>)}</div>)}</section></>
+        <Stats items={[
+          [all.length, "Confirmed Crew"],
+          [all.filter((a: any) => a.checkIn).length, "Checked In"],
+          [all.filter((a: any) => a.checkOut).length, "Checked Out"],
+          [allWaitlisted.length, "Waiting List"],
+          [allCancelled.length, "Cancellations"],
+          [all.filter((a: any) => absentNow(a, ev)).length, "Absent"],
+        ]} />
+
+        {ev.roles.map(r => {
+          const acceptedWorkers = r.applications.filter((a: any) => a.status === "ACCEPTED")
+          const waitlistedWorkers = r.applications.filter((a: any) => a.status === "WAITLISTED").sort((x: any, y: any) => (x.waitlistPosition || 0) - (y.waitlistPosition || 0))
+          const pendingWorkers = r.applications.filter((a: any) => a.status === "PENDING")
+          const cancelledWorkers = r.applications.filter((a: any) => a.status === "CANCELLED")
+          const method = r.selectionMethod || "FIRST_COME"
+
+          return (
+            <div key={r.id} className="role" style={{ marginTop: "20px" }}>
+              <div className="row" style={{ alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <div>
+                  <h3 style={{ margin: 0, display: "inline-block" }}>{r.title}</h3>
+                  <span className="mute" style={{ marginLeft: "8px" }}>{hrs(r)}</span>
+                  <span style={{ marginLeft: "8px", background: "#f1f5f9", padding: "2px 8px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: 700 }}>
+                    {method === "FIRST_COME" ? "⚡ First-Come, First-Served" : method === "AUTOMATIC" ? "🤖 Automatic Matching" : "📋 Manual Review"}
+                  </span>
+                  {r.locationSpecific && <span className="mute" style={{ marginLeft: "8px", fontSize: "0.8rem" }}>· {r.locationSpecific}</span>}
+                </div>
+
+                <div style={{ textAlign: "right" }}>
+                  <b style={{ color: acceptedWorkers.length >= r.slots ? "#16a34a" : "#0284c7" }}>
+                    {acceptedWorkers.length}/{r.slots} confirmed
+                  </b>
+                  {waitlistedWorkers.length > 0 && <span className="mute" style={{ fontSize: "0.8rem", marginLeft: "6px" }}>({waitlistedWorkers.length} waitlisted)</span>}
+                </div>
+              </div>
+
+              <div className="bar" role="img" aria-label={`${acceptedWorkers.length} of ${r.slots} people`} style={{ margin: "10px 0" }}>
+                <i style={{ width: `${Math.min(100, (acceptedWorkers.length / r.slots) * 100)}%` }} />
+              </div>
+
+              {/* Automatic Selection Batch Approval Action */}
+              {method === "AUTOMATIC" && pendingWorkers.length > 0 && acceptedWorkers.length < r.slots && (
+                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "10px", padding: "12px", margin: "10px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <b style={{ fontSize: "0.9rem", color: "#0f172a" }}>Automatic Selection Recommendation Ready</b>
+                    <div className="mute" style={{ fontSize: "0.8rem" }}>
+                      AI matching algorithm evaluated {pendingWorkers.length} applicants. Approve the top {Math.min(r.slots - acceptedWorkers.length, pendingWorkers.length)} ranked candidates.
+                    </div>
+                  </div>
+                  <form action={approveRecommendedBatch.bind(null, r.id)}>
+                    <button type="submit" style={{ background: "#0284c7", color: "#fff", fontWeight: 700, padding: "6px 14px", borderRadius: "6px", border: "none", cursor: "pointer" }}>
+                      ✓ Approve Recommended Candidates
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* 1. Confirmed Crew */}
+              <div style={{ marginTop: "12px" }}>
+                <b style={{ fontSize: "0.9rem", color: "#065f46" }}>Confirmed Crew ({acceptedWorkers.length})</b>
+                {!acceptedWorkers.length ? (
+                  <p className="mute" style={{ margin: "4px 0 10px", fontSize: "0.85rem" }}>
+                    {method === "FIRST_COME" ? "Waiting for applicants (vacancies fill automatically via FCFS)." : "No confirmed workers yet."}
+                  </p>
+                ) : (
+                  acceptedWorkers.map((a: any) => (
+                    <div key={a.id} className="app" style={{ alignItems: "center", gap: "10px", marginTop: "8px" }}>
+                      <span className="av">{a.user.name[0]}</span>
+                      <div className="who" style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <b>{a.user.name}</b>
+                          <span style={{ fontSize: "0.75rem", background: "#ecfdf5", color: "#047857", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                            {Math.round(a.user.reliabilityScore ?? 100)}% Reliability
+                          </span>
+                        </div>
+                        <div className="mute" style={{ fontSize: "0.8rem" }}>
+                          {a.user.city} · {a.user.skills || "general skills"} · {a.checkIn ? `In ${hm(a.checkIn)}` : "Not checked in"}{a.checkOut ? ` · Out ${hm(a.checkOut)}` : ""}
+                        </div>
+                      </div>
+
+                      {(() => { const ab = absentNow(a, ev); return <span className={`tag ${a.checkOut ? "ok" : ab ? "bad" : ""}`}>{attended(a) ? "COMPLETED" : ab ? "ABSENT" : a.checkIn ? "CHECKED IN" : "NOT CHECKED IN"}</span> })()}
+
+                      {!a.checkIn && !absentNow(a, ev) && <form action={clock.bind(null, a.id, "checkIn")}><button className="sm">Check in</button></form>}
+                      {!a.checkIn && ev.startsAt <= now && !a.absent && !absentNow(a, ev) && <form action={markAbsent.bind(null, a.id, true)}><button className="bad sm">Absent</button></form>}
+                      {a.absent && !a.absentCounted && <form action={markAbsent.bind(null, a.id, false)}><button className="ghost sm">Undo absent</button></form>}
+                      {a.checkIn && !a.checkOut && !absentNow(a, ev) && <form action={clock.bind(null, a.id, "checkOut")}><button className="sm">Check out</button></form>}
+                      {a.paid && <span className="tag ok">Paid ₹{a.payout}</span>}
+                      {a.checkOut && <form action={rate.bind(null, a.id)} className="row"><select name="rating" defaultValue={a.rating ?? 5} aria-label="Rating">{[5, 4, 3, 2, 1].map(n => <option key={n}>{n}</option>)}</select><button className="ghost sm">Rate</button></form>}
+
+                      {/* Organizer Cancellation & Replacement Action */}
+                      {!a.checkIn && (
+                        <details style={{ display: "inline-block" }}>
+                          <summary className="ghost sm" style={{ color: "#dc2626", cursor: "pointer", fontSize: "0.78rem" }}>Release</summary>
+                          <form action={organizerCancelWorker.bind(null, a.id)} style={{ position: "absolute", background: "#fff", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "10px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, minWidth: "220px" }}>
+                            <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>Release Reason</label>
+                            <input name="reason" placeholder="e.g. Schedule reschedule" required style={{ width: "100%", margin: "4px 0", fontSize: "0.8rem", padding: "4px 6px" }} />
+                            <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem", margin: "4px 0 8px" }}>
+                              <input type="checkbox" name="autoReplace" defaultChecked /> Auto-offer to waitlist
+                            </label>
+                            <button type="submit" style={{ background: "#dc2626", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "4px", fontSize: "0.75rem", width: "100%", cursor: "pointer" }}>Confirm Release</button>
+                          </form>
+                        </details>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* 2. Waiting List Queue */}
+              {waitlistedWorkers.length > 0 && (
+                <div style={{ marginTop: "14px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "10px", padding: "12px" }}>
+                  <b style={{ fontSize: "0.88rem", color: "#92400e" }}>Waiting List Queue ({waitlistedWorkers.length})</b>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+                    {waitlistedWorkers.map((w: any) => (
+                      <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.84rem", padding: "4px 0", borderBottom: "1px solid #fef3c7" }}>
+                        <div>
+                          <b style={{ color: "#78350f" }}>#{w.waitlistPosition}</b> {w.user.name} <span className="mute">({w.user.city} · {Math.round(w.user.reliabilityScore ?? 100)}% Reliability)</span>
+                        </div>
+                        <span style={{ fontSize: "0.75rem", background: "#fde68a", color: "#854d0e", padding: "2px 6px", borderRadius: "4px", fontWeight: 600 }}>
+                          Auto-Replacement Eligible
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Pending Review Queue (for Manual or Auto Selection) */}
+              {pendingWorkers.length > 0 && (
+                <div style={{ marginTop: "14px" }}>
+                  <b style={{ fontSize: "0.88rem", color: "#334155" }}>Pending Applicants ({pendingWorkers.length})</b>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+                    {pendingWorkers.map((p: any) => (
+                      <div key={p.id} className="app" style={{ alignItems: "center", gap: "10px" }}>
+                        <span className="av">{p.user.name[0]}</span>
+                        <div className="who" style={{ flex: 1 }}>
+                          <b>{p.user.name}</b>
+                          {p.matchScore != null && (
+                            <span style={{ marginLeft: "8px", fontSize: "0.75rem", background: "#e0f2fe", color: "#0369a1", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                              Match: {Math.round(p.matchScore)}%
+                            </span>
+                          )}
+                          <div className="mute" style={{ fontSize: "0.8rem" }}>
+                            {p.user.city} · {p.user.skills || "general skills"} · Exp: {p.user.experienceYears || 0} yrs · {Math.round(p.user.reliabilityScore ?? 100)}% Reliability
+                          </div>
+                        </div>
+
+                        <form action={decide.bind(null, p.id, "ACCEPTED")}>
+                          <button disabled={acceptedWorkers.length >= r.slots} className="sm">Accept</button>
+                        </form>
+                        <form action={decide.bind(null, p.id, "WAITLISTED")}>
+                          <button className="ghost sm">Waitlist</button>
+                        </form>
+                        <form action={decide.bind(null, p.id, "REJECTED")}>
+                          <button className="ghost sm" style={{ color: "#dc2626" }}>Reject</button>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Cancellations Log */}
+              {cancelledWorkers.length > 0 && (
+                <div style={{ marginTop: "12px", fontSize: "0.82rem", color: "#64748b" }}>
+                  <details>
+                    <summary style={{ cursor: "pointer", color: "#64748b" }}>
+                      View {cancelledWorkers.length} Cancelled / Released Shift{cancelledWorkers.length === 1 ? "" : "s"}
+                    </summary>
+                    <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {cancelledWorkers.map((c: any) => (
+                        <div key={c.id} style={{ background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #f1f5f9" }}>
+                          <b>{c.user.name}</b>: {c.cancellationReason || "No reason given"} ({c.cancelledBy || "Cancelled"}{c.isEmergency ? " · Emergency" : ""})
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </section></>
     })()}
 
     {tab === "events" && (!events.length ? <p className="card">No events created yet. Use the Create Event tab to fund and launch your first event.</p> : events.map(e => {

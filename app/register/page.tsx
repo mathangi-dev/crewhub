@@ -4,7 +4,7 @@ export default function Register({ searchParams }: { searchParams: { e?: string;
   return <div className="auth"><Link href="/" className="back">← Back to home</Link><form action={register} className="panel"><img src="/logo-full.png" alt="CrewHub" className="plogo" /><h1>Create account</h1>
     {searchParams.e && <p className="err" role="alert">That email is already registered. <Link href="/login">Log in instead</Link>.</p>}
     <label>Join as</label><div className="roles">
-      <label><input type="radio" name="role" value="VOLUNTEER" defaultChecked={!org} /><span>Join as Volunteer<small>Apply for event roles</small></span></label>
+      <label><input type="radio" name="role" value="WORKER" defaultChecked={!org} /><span>Join as Worker<small>Apply for event gig roles</small></span></label>
       <label><input type="radio" name="role" value="ORGANIZER" defaultChecked={org} /><span>Join as Organizer<small>Post events and hire crew</small></span></label></div>
     <label htmlFor="name">Full name</label><input id="name" name="name" autoComplete="name" required />
     <label htmlFor="city">City</label><input id="city" name="city" autoComplete="address-level2" />

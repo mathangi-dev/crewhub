@@ -148,7 +148,7 @@ async function main() {
       userId: arjun.id,
       subject: "Payout inquiry for Kreya Art Expo shift",
       category: "PAYMENT",
-      message: "Hi Admin, I completed my 12-hour shift at Kreya Art Expo on time. Please confirm when the bulk payout will be transferred to my UPI.",
+      message: "Hi Admin, I completed my 12-hour shift at Kreya Art Expo on time. Please confirm when the payout will be transferred to my UPI.",
       answer: "Hi Arjun, Kreya Art Expo attendances are verified and your payout is processed directly to your UPI.",
       answeredAt: new Date(),
       status: "ANSWERED"

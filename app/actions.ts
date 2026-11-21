@@ -1,21 +1,23 @@
 "use server"
 import { writeFile, mkdir } from "fs/promises"; import path from "path"; import { randomUUID } from "crypto"; import bcrypt from "bcryptjs"; import { redirect } from "next/navigation"; import { cookies } from "next/headers"; import { revalidatePath } from "next/cache"
-import { db } from "@/lib/db"; import { me, need, setSession } from "@/lib/auth"; import { crewOf, commissionOf, accepted, attended } from "@/lib/money"; import { encrypt } from "@/lib/bank"; import { TERMS_VERSION } from "@/lib/terms"; import { payState, unusedOf } from "@/lib/payroll"
+import { db } from "@/lib/db"; import { me, need, setSession } from "@/lib/auth"; import { crewOf, commissionOf, accepted, attended, rolePersonPay } from "@/lib/money"; import { encrypt } from "@/lib/bank"; import { TERMS_VERSION } from "@/lib/terms"; import { payState, unusedOf } from "@/lib/payroll"
 import { dispatchNearbyEventNotifications, notifyAdmins, notifyUser } from "@/lib/notifications";
 import { getCityCoordinates, getVenueCoordinates } from "@/lib/geo";
 import { ADMIN_UPI_ID, ADMIN_UPI_NUMBER, generateUTR } from "@/lib/payment";
+import { checkScheduleConflict, calculateMatchScore, resequenceWaitlist, promoteNextWaitlistedWorker, broadcastUrgentOpenShift } from "@/lib/workforce";
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim()
 const home = (r: string) => (r === "ADMIN" ? "/admin" : r === "ORGANIZER" ? "/organizer" : "/volunteer")
 const log = (actorId: string, action: string) => db.auditLog.create({ data: { actorId, action } })
 
 export async function register(f: FormData) {
-  const role = s(f, "role") === "ORGANIZER" ? "ORGANIZER" : "VOLUNTEER"
+  const rawRole = s(f, "role")
+  const role = rawRole === "ORGANIZER" ? "ORGANIZER" : "WORKER"
   if (await db.user.findUnique({ where: { email: s(f, "email").toLowerCase() } })) redirect("/register?e=exists")
   const u = await db.user.create({ data: { email: s(f, "email").toLowerCase(), name: s(f, "name"), role, city: s(f, "city"), password: await bcrypt.hash(s(f, "password"), 10) } })
-  if (role === "VOLUNTEER") {
+  if (role === "WORKER") {
     await notifyAdmins({
-      title: `New Volunteer Registered: ${u.name}`,
-      message: `${u.name} (${u.city || "Tamil Nadu"}) has joined CrewHub as a volunteer.`,
+      title: `New Worker Registered: ${u.name}`,
+      message: `${u.name} (${u.city || "Tamil Nadu"}) has joined CrewHub as a gig worker.`,
       link: `/admin/volunteers`,
     }).catch(console.error)
   }
@@ -26,9 +28,9 @@ export async function login(f: FormData) {
   if (!u || u.suspended || !(await bcrypt.compare(s(f, "password"), u.password))) redirect("/login?e=1")
   await setSession(u.id); redirect(home(u.role))
 }
-// volunteers must agree to the terms before they can use the volunteer area (see app/volunteer/layout.tsx)
+// workers must agree to the terms before they can use the worker area (see app/volunteer/layout.tsx)
 export async function acceptTerms(f: FormData) {
-  const u = await need("VOLUNTEER")
+  const u = await need("WORKER")
   if (f.get("agree") !== "on") redirect("/terms")
   await db.user.update({ where: { id: u.id }, data: { termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() } })
   await log(u.id, `terms-accepted:${TERMS_VERSION}`); redirect("/volunteer")
@@ -44,14 +46,16 @@ export async function saveProfile(f: FormData) {
   if (upiId) d.upiId = upiId
   if (upiNumber) d.upiNumber = upiNumber
 
-  if (u.role === "VOLUNTEER") {
+  if (u.role === "VOLUNTEER" || u.role === "WORKER") {
     const rawAge = parseInt(s(f, "age"))
+    const rawExp = parseFloat(s(f, "experienceYears"))
     Object.assign(d, {
       skills: s(f, "skills"),
       interests: s(f, "interests"),
       availability: s(f, "availability"),
       gender: s(f, "gender"),
-      age: isNaN(rawAge) ? null : rawAge
+      age: isNaN(rawAge) ? null : rawAge,
+      experienceYears: isNaN(rawExp) ? 0 : rawExp,
     })
   } else {
     Object.assign(d, {
@@ -73,12 +77,28 @@ async function saveImage(f: FormDataEntryValue | null) {
   const name = `${randomUUID()}.${ext}`; await writeFile(path.join(dir, name), Buffer.from(await f.arrayBuffer())); return `/uploads/${name}`
 }
 export async function createEvent(f: FormData) {
-  const u = await need("ORGANIZER"); if (u.approval !== "APPROVED") redirect("/organizer"); const T = f.getAll("roleTitle"), N = f.getAll("roleSlots"), P = f.getAll("rolePay"), K = f.getAll("roleSkills"), H = f.getAll("roleHours")
-  const roles = T.map((t, i) => ({ title: String(t).trim(), slots: Math.max(1, +String(N[i]) || 1), pay: Math.max(0, +String(P[i]) || 0), skills: String(K[i] ?? "").trim(), hours: Math.max(0, +String(H[i]) || 0) })).filter(r => r.title)
-  if (!roles.length) redirect("/organizer?tab=create")
+  const u = await need("ORGANIZER"); if (u.approval !== "APPROVED") redirect("/organizer");
+  const T = f.getAll("roleTitle"), N = f.getAll("roleSlots"), P = f.getAll("rolePay"), K = f.getAll("roleSkills"), H = f.getAll("roleHours")
+  const WT = f.getAll("roleWageType"), SM = f.getAll("roleSelectionMethod"), EXP = f.getAll("roleExperienceReq"), LOC = f.getAll("roleLocation"), DESC = f.getAll("roleDescription")
+  
   const startsAt = new Date(`${s(f, "date")}T${s(f, "startTime")}`); let endsAt = new Date(`${s(f, "date")}T${s(f, "endTime")}`)
   if (isNaN(+startsAt) || isNaN(+endsAt)) redirect("/organizer?tab=create")
   if (endsAt <= startsAt) endsAt = new Date(endsAt.getTime() + 864e5) // overnight event
+
+  const roles = T.map((t, i) => ({
+    title: String(t).trim(),
+    slots: Math.max(1, +String(N[i]) || 1),
+    pay: Math.max(0, +String(P[i]) || 0),
+    skills: String(K[i] ?? "").trim(),
+    hours: Math.max(0, +String(H[i]) || 0),
+    wageType: String(WT[i] || "HOURLY"),
+    selectionMethod: String(SM[i] || "FIRST_COME"),
+    experienceReq: String(EXP[i] || "None"),
+    locationSpecific: String(LOC[i] || "").trim(),
+    description: String(DESC[i] || "").trim(),
+    closingAt: startsAt
+  })).filter(r => r.title)
+  if (!roles.length) redirect("/organizer?tab=create")
   // The event is only a DRAFT until the organizer pays crew pay + platform fee on the checkout page.
   // A DRAFT is invisible to everyone (admin, volunteers, home page). Events with no paid roles have nothing to pay.
   const title = s(f, "title")
@@ -201,65 +221,515 @@ export async function cancelEvent(id: string) {
 }
 
 export async function apply(roleId: string, eventId: string) {
-  const u = await need("VOLUNTEER"); if (u.termsVersion !== TERMS_VERSION) redirect("/terms")
-  const r = await db.eventRole.findUnique({ where: { id: roleId }, include: { event: true, applications: true } })
-  const mine = r?.applications.find(a => a.userId === u.id)
-  const open = r && r.event.status === "PUBLISHED" && r.event.endsAt > new Date() && u.approval === "APPROVED" && (!mine || mine.status === "CANCELLED") && r.applications.filter(a => a.status === "PENDING" || a.status === "ACCEPTED").length < r.slots
-  if (open) await db.application.upsert({ where: { roleId_userId: { roleId, userId: u.id } }, create: { roleId, userId: u.id }, update: { status: "PENDING" } })
-  revalidatePath("/", "layout"); redirect(`/volunteer/events/${eventId}`)
+  const u = await need("WORKER");
+  if (u.termsVersion !== TERMS_VERSION) redirect("/terms");
+  if (u.approval !== "APPROVED") redirect(`/volunteer/events/${eventId}?err=not_approved`);
+  if (u.suspended) redirect(`/volunteer/events/${eventId}?err=suspended`);
+
+  const r = await db.eventRole.findUnique({
+    where: { id: roleId },
+    include: { event: true, applications: true },
+  });
+  if (!r || r.event.status !== "PUBLISHED" || r.event.endsAt <= new Date()) {
+    redirect(`/volunteer/events/${eventId}?err=closed`);
+  }
+
+  // 1. Check for overlapping confirmed assignments
+  const conflict = await checkScheduleConflict(u.id, r.event.startsAt, r.event.endsAt);
+  if (conflict.hasConflict) {
+    redirect(`/volunteer/events/${eventId}?err=conflict&conflicting=${encodeURIComponent(conflict.conflictingEventTitle || "another shift")}`);
+  }
+
+  const mine = r.applications.find((a) => a.userId === u.id);
+  if (mine && !["CANCELLED", "WITHDRAWN", "REJECTED"].includes(mine.status)) {
+    redirect(`/volunteer/events/${eventId}?err=already_applied`);
+  }
+
+  const method = r.selectionMethod || "FIRST_COME";
+
+  if (method === "FIRST_COME") {
+    // Transaction-safe First-Come, First-Served vacancy allocation
+    await db.$transaction(async (tx) => {
+      const acceptedCount = await tx.application.count({
+        where: { roleId, status: "ACCEPTED" },
+      });
+
+      if (acceptedCount < r.slots) {
+        // Instant FCFS confirmation
+        await tx.application.upsert({
+          where: { roleId_userId: { roleId, userId: u.id } },
+          create: { roleId, userId: u.id, status: "ACCEPTED", waitlistPosition: null },
+          update: { status: "ACCEPTED", waitlistPosition: null, cancelledAt: null, cancelledBy: null },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: u.id,
+            eventId: r.eventId,
+            title: `Confirmed: ${r.title}`,
+            message: `You are officially confirmed for "${r.title}" at "${r.event.title}"! Report at the venue on ${r.event.startsAt.toLocaleDateString("en-IN")}.`,
+            link: `/volunteer/my-events?id=${r.eventId}`,
+          },
+        });
+
+        // If this fills the last vacancy, notify organizer
+        if (acceptedCount + 1 >= r.slots) {
+          await tx.notification.create({
+            data: {
+              userId: r.event.organizerId,
+              eventId: r.eventId,
+              title: `Role Filled: ${r.title}`,
+              message: `All ${r.slots} vacancies for "${r.title}" in "${r.event.title}" have been successfully filled via First-Come, First-Served.`,
+              link: `/organizer?tab=manage&event=${r.eventId}`,
+            },
+          });
+        }
+      } else {
+        // Vacancies filled: place on waiting list in sequential order
+        const currentWaitlistCount = await tx.application.count({
+          where: { roleId, status: "WAITLISTED" },
+        });
+        const waitlistPos = currentWaitlistCount + 1;
+
+        await tx.application.upsert({
+          where: { roleId_userId: { roleId, userId: u.id } },
+          create: { roleId, userId: u.id, status: "WAITLISTED", waitlistPosition: waitlistPos },
+          update: { status: "WAITLISTED", waitlistPosition: waitlistPos, cancelledAt: null, cancelledBy: null },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: u.id,
+            eventId: r.eventId,
+            title: `Added to Waiting List (Position #${waitlistPos})`,
+            message: `All immediate slots for "${r.title}" at "${r.event.title}" are currently filled. You are #${waitlistPos} on the waiting list. You will receive an instant replacement offer if a slot opens up.`,
+            link: `/volunteer/applications`,
+          },
+        });
+      }
+    });
+  } else if (method === "AUTOMATIC") {
+    // Multi-factor Automatic Selection / Recommendation
+    const score = calculateMatchScore(u, r, r.event);
+    await db.application.upsert({
+      where: { roleId_userId: { roleId, userId: u.id } },
+      create: { roleId, userId: u.id, status: "PENDING", matchScore: score },
+      update: { status: "PENDING", matchScore: score, cancelledAt: null, cancelledBy: null },
+    });
+
+    await notifyUser({
+      userId: u.id,
+      eventId: r.eventId,
+      title: `Application Submitted (Match Score: ${score}%)`,
+      message: `Your application for "${r.title}" at "${r.event.title}" was submitted. The automatic matching engine evaluated your profile with a match score of ${score}%.`,
+      link: `/volunteer/applications`,
+    });
+  } else {
+    // MANUAL Selection
+    await db.application.upsert({
+      where: { roleId_userId: { roleId, userId: u.id } },
+      create: { roleId, userId: u.id, status: "PENDING" },
+      update: { status: "PENDING", cancelledAt: null, cancelledBy: null },
+    });
+
+    await notifyUser({
+      userId: u.id,
+      eventId: r.eventId,
+      title: `Application Received: ${r.title}`,
+      message: `Your application for "${r.title}" at "${r.event.title}" is under review by the organizer.`,
+      link: `/volunteer/applications`,
+    });
+  }
+
+  revalidatePath("/", "layout");
+  redirect(`/volunteer/events/${eventId}?applied=1`);
 }
+
 export async function cancelApplication(id: string) {
-  const u = await need("VOLUNTEER"); await db.application.updateMany({ where: { id, userId: u.id, status: "PENDING" }, data: { status: "CANCELLED" } }); revalidatePath("/", "layout")
+  const u = await need("WORKER");
+  await db.application.updateMany({
+    where: { id, userId: u.id, status: { in: ["PENDING", "WAITLISTED"] } },
+    data: { status: "CANCELLED", waitlistPosition: null },
+  });
+  revalidatePath("/", "layout");
 }
+
+export async function withdrawWaitlist(appId: string) {
+  const u = await need("WORKER");
+  const app = await db.application.findFirst({
+    where: { id: appId, userId: u.id, status: "WAITLISTED" },
+    include: { role: true },
+  });
+  if (!app) return;
+
+  await db.application.update({
+    where: { id: appId },
+    data: { status: "WITHDRAWN", waitlistPosition: null },
+  });
+
+  await resequenceWaitlist(app.roleId);
+  revalidatePath("/volunteer/applications");
+  revalidatePath("/", "layout");
+}
+
+export async function respondToReplacementOffer(appId: string, accept: boolean) {
+  const u = await need("WORKER");
+  const app = await db.application.findFirst({
+    where: { id: appId, userId: u.id, status: "OFFERED" },
+    include: { role: { include: { event: true } } },
+  });
+  if (!app) return;
+
+  if (accept) {
+    if (app.offerExpiresAt && app.offerExpiresAt < new Date()) {
+      await db.application.update({
+        where: { id: appId },
+        data: { status: "WITHDRAWN", offerExpiresAt: null },
+      });
+      await promoteNextWaitlistedWorker(app.roleId);
+      revalidatePath("/volunteer/applications");
+      redirect("/volunteer/applications?err=expired");
+    }
+
+    const conflict = await checkScheduleConflict(
+      u.id,
+      app.role.event.startsAt,
+      app.role.event.endsAt,
+      app.id
+    );
+    if (conflict.hasConflict) {
+      await db.application.update({
+        where: { id: appId },
+        data: { status: "WITHDRAWN", offerExpiresAt: null },
+      });
+      await promoteNextWaitlistedWorker(app.roleId);
+      revalidatePath("/volunteer/applications");
+      redirect(`/volunteer/applications?err=conflict&conflicting=${encodeURIComponent(conflict.conflictingEventTitle || "")}`);
+    }
+
+    await db.application.update({
+      where: { id: appId },
+      data: {
+        status: "ACCEPTED",
+        offerExpiresAt: null,
+        waitlistPosition: null,
+      },
+    });
+
+    await notifyUser({
+      userId: app.role.event.organizerId,
+      eventId: app.role.eventId,
+      title: `Replacement Confirmed: ${app.role.title}`,
+      message: `Worker ${u.name} accepted the replacement offer for "${app.role.title}" in "${app.role.event.title}". Vacancy filled!`,
+      link: `/organizer?tab=manage&event=${app.role.eventId}`,
+    });
+
+    await resequenceWaitlist(app.roleId);
+  } else {
+    await db.application.update({
+      where: { id: appId },
+      data: { status: "WITHDRAWN", offerExpiresAt: null, waitlistPosition: null },
+    });
+
+    await promoteNextWaitlistedWorker(app.roleId);
+    await resequenceWaitlist(app.roleId);
+  }
+
+  revalidatePath("/volunteer/applications");
+  revalidatePath("/", "layout");
+}
+
+export async function cancelWorkerAssignment(appId: string, f: FormData) {
+  const u = await need("WORKER");
+  const app = await db.application.findFirst({
+    where: { id: appId, userId: u.id, status: "ACCEPTED" },
+    include: { role: { include: { event: true } } },
+  });
+  if (!app) return;
+
+  const reason = s(f, "reason") || "Personal emergency";
+  const isEmergency = f.get("isEmergency") === "on";
+  const now = new Date();
+  const startsAt = app.role.event.startsAt;
+  const hoursUntilEvent = (startsAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  await db.application.update({
+    where: { id: appId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: now,
+      cancelledBy: "WORKER",
+      cancellationReason: reason,
+      isEmergency,
+    },
+  });
+
+  if (hoursUntilEvent < 24 && !isEmergency) {
+    await db.user.update({
+      where: { id: u.id },
+      data: {
+        lateCancellations: { increment: 1 },
+        reliabilityScore: Math.max(20, Math.round((u.reliabilityScore ?? 100) - 10)),
+      },
+    });
+  }
+
+  await notifyUser({
+    userId: app.role.event.organizerId,
+    eventId: app.role.eventId,
+    title: `Worker Cancellation: ${app.role.title}`,
+    message: `Worker ${u.name} cancelled their assignment for "${app.role.title}". Reason: ${reason}. Automated replacement process initiated.`,
+    link: `/organizer?tab=manage&event=${app.role.eventId}`,
+  });
+
+  await promoteNextWaitlistedWorker(app.roleId);
+
+  revalidatePath("/volunteer/my-events");
+  revalidatePath("/volunteer/applications");
+  revalidatePath("/", "layout");
+  redirect("/volunteer/applications?cancelled=1");
+}
+
+export async function organizerCancelWorker(appId: string, f: FormData) {
+  const u = await need("ORGANIZER");
+  const app = await db.application.findFirst({
+    where: { id: appId, role: { event: { organizerId: u.id } } },
+    include: { role: { include: { event: true } }, user: true },
+  });
+  if (!app) return;
+
+  const reason = s(f, "reason") || "Workforce requirement adjustment";
+  await db.application.update({
+    where: { id: appId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      cancelledBy: "ORGANIZER",
+      cancellationReason: reason,
+    },
+  });
+
+  await notifyUser({
+    userId: app.userId,
+    eventId: app.role.eventId,
+    title: `Assignment Released: ${app.role.title}`,
+    message: `Organizer released your assignment for "${app.role.title}" at "${app.role.event.title}". Reason: ${reason}. Your reliability score is not affected.`,
+    link: `/volunteer/applications`,
+  });
+
+  if (f.get("autoReplace") === "on") {
+    await promoteNextWaitlistedWorker(app.roleId);
+  }
+
+  revalidatePath("/organizer");
+  revalidatePath("/", "layout");
+}
+
+export async function approveRecommendedBatch(roleId: string) {
+  const u = await need("ORGANIZER");
+  const role = await db.eventRole.findFirst({
+    where: { id: roleId, event: { organizerId: u.id } },
+    include: { event: true },
+  });
+  if (!role) return;
+
+  const currentAccepted = await db.application.count({
+    where: { roleId, status: "ACCEPTED" },
+  });
+  const vacancies = role.slots - currentAccepted;
+  if (vacancies <= 0) return;
+
+  const pending = await db.application.findMany({
+    where: { roleId, status: "PENDING" },
+    orderBy: { matchScore: "desc" },
+    take: vacancies,
+    include: { user: true },
+  });
+
+  for (const app of pending) {
+    await db.application.update({
+      where: { id: app.id },
+      data: { status: "ACCEPTED" },
+    });
+
+    await notifyUser({
+      userId: app.userId,
+      eventId: role.eventId,
+      title: `Accepted: ${role.title}`,
+      message: `You were selected and confirmed for "${role.title}" at "${role.event.title}" based on profile matching!`,
+      link: `/volunteer/my-events?id=${role.eventId}`,
+    });
+  }
+
+  const remaining = await db.application.findMany({
+    where: { roleId, status: "PENDING" },
+    orderBy: { matchScore: "desc" },
+  });
+
+  for (let i = 0; i < remaining.length; i++) {
+    await db.application.update({
+      where: { id: remaining[i].id },
+      data: { status: "WAITLISTED", waitlistPosition: i + 1 },
+    });
+  }
+
+  revalidatePath("/organizer");
+  revalidatePath("/", "layout");
+}
+
+export async function registerBackup(roleId: string) {
+  const u = await need("WORKER");
+  const role = await db.eventRole.findUnique({
+    where: { id: roleId },
+    include: { event: true },
+  });
+  if (!role || role.event.status !== "PUBLISHED") return;
+
+  await db.backupRegistration.upsert({
+    where: { roleId_workerId: { roleId, workerId: u.id } },
+    create: {
+      roleId,
+      workerId: u.id,
+      standbyStart: role.event.startsAt,
+      standbyEnd: role.event.endsAt,
+      standbyAllowance: Math.round(role.pay * 0.3),
+      status: "ACTIVE",
+    },
+    update: { status: "ACTIVE" },
+  });
+
+  await notifyUser({
+    userId: u.id,
+    eventId: role.eventId,
+    title: `Backup Standby Registered: ${role.title}`,
+    message: `You are registered as a Standby Backup for "${role.title}" at "${role.event.title}". You will receive priority notification if an opening occurs!`,
+    link: `/volunteer/applications`,
+  });
+
+  revalidatePath(`/volunteer/events/${role.eventId}`);
+  revalidatePath("/volunteer/applications");
+}
+
+export async function addAvailability(f: FormData) {
+  const u = await need("WORKER");
+  const dateStr = s(f, "availDate");
+  const startTime = s(f, "startTime") || "09:00";
+  const endTime = s(f, "endTime") || "18:00";
+  const isAllDay = f.get("isAllDay") === "on";
+  if (!dateStr) return;
+
+  const date = new Date(dateStr);
+  if (isNaN(+date)) return;
+
+  await db.workerAvailability.create({
+    data: {
+      workerId: u.id,
+      date,
+      startTime,
+      endTime,
+      isAllDay,
+    },
+  });
+  revalidatePath("/volunteer/profile");
+}
+
+export async function deleteAvailability(id: string) {
+  const u = await need("WORKER");
+  await db.workerAvailability.deleteMany({
+    where: { id, workerId: u.id },
+  });
+  revalidatePath("/volunteer/profile");
+}
+
+export async function submitAttendanceDispute(appId: string, f: FormData) {
+  const u = await need("WORKER");
+  const app = await db.application.findFirst({
+    where: { id: appId, userId: u.id },
+    include: { role: { include: { event: true } } },
+  });
+  if (!app) return;
+
+  const reason = s(f, "disputeReason");
+  if (!reason) return;
+
+  const q = await db.supportQuery.create({
+    data: {
+      userId: u.id,
+      subject: `Attendance/Penalty Dispute: ${app.role.event.title} (${app.role.title})`,
+      category: "COMPLAINT",
+      message: `Worker ${u.name} disputes attendance/cancellation record for event "${app.role.event.title}". Statement: ${reason}`,
+      status: "OPEN",
+    },
+  });
+
+  await notifyAdmins({
+    title: `Dispute Submitted by ${u.name}`,
+    message: `Disputing attendance record for "${app.role.event.title}": "${reason.slice(0, 80)}..."`,
+    link: `/admin/queries?id=${q.id}`,
+  });
+
+  revalidatePath("/volunteer/history");
+  revalidatePath("/volunteer/payments");
+  redirect("/volunteer/history?disputed=1");
+}
+
 async function ownApp(id: string) {
   const u = await need("ORGANIZER")
   return db.application.findFirst({ where: { id, role: { event: { organizerId: u.id } } }, include: { role: { include: { event: true } } } })
 }
-// the admin accepts volunteers for an event; accepted volunteers then show up on the organizer's dashboard
-export async function decide(id: string, status: "ACCEPTED" | "REJECTED") {
-  const a = await need("ADMIN"); const x = await db.application.findUnique({ where: { id }, include: { role: true } }); if (!x || x.status !== "PENDING") return
-  if (status === "ACCEPTED" && (await db.application.count({ where: { roleId: x.roleId, status: "ACCEPTED" } })) >= x.role.slots) return
-  await db.application.update({ where: { id }, data: { status } }); await log(a.id, `${status}:application:${id}`);
+export async function decide(id: string, status: "ACCEPTED" | "REJECTED" | "WAITLISTED") {
+  const u = await me();
+  if (!u) redirect("/login");
+  const x = await db.application.findUnique({
+    where: { id },
+    include: { role: { include: { event: true } } },
+  });
+  if (!x) return;
 
-  // When admin accepts a volunteer, check if the event's required volunteer slots are now 100% completed!
-  if (status === "ACCEPTED") {
-    try {
-      const ev = await db.event.findUnique({
-        where: { id: x.role.eventId },
-        include: { roles: { include: { applications: { where: { status: "ACCEPTED" } } } } }
-      })
-      if (ev) {
-        const totalSlots = ev.roles.reduce((sum, r) => sum + r.slots, 0)
-        const totalAccepted = ev.roles.reduce((sum, r) => sum + r.applications.length, 0)
-        if (totalSlots > 0 && totalAccepted >= totalSlots) {
-          // Check if already notified for requirements completion
-          const alreadyNotified = await db.notification.findFirst({
-            where: {
-              userId: ev.organizerId,
-              eventId: ev.id,
-              title: { contains: "Requirements Completed" }
-            }
-          })
-          if (!alreadyNotified) {
-            await db.notification.create({
-              data: {
-                userId: ev.organizerId,
-                eventId: ev.id,
-                title: `Volunteer Requirements Completed: ${ev.title}`,
-                message: `All ${totalSlots} required volunteer slots for "${ev.title}" have been successfully filled! You can now view your crew and download the volunteer roster spreadsheet.`,
-                link: `/organizer?tab=manage&event=${ev.id}`,
-              }
-            })
-          }
-        }
-      }
-    } catch (err) {
-      console.error("[DecideNotificationError]", err)
-    }
+  // Authorization: Must be Admin OR Event's Organizer
+  if (u.role !== "ADMIN" && x.role.event.organizerId !== u.id) {
+    throw new Error("Unauthorized to decide on this application.");
   }
 
-  revalidatePath("/", "layout")
+  if (status === "ACCEPTED") {
+    const acceptedCount = await db.application.count({
+      where: { roleId: x.roleId, status: "ACCEPTED" },
+    });
+    if (acceptedCount >= x.role.slots) return; // Full
+    await db.application.update({
+      where: { id },
+      data: { status: "ACCEPTED", waitlistPosition: null },
+    });
+  } else if (status === "WAITLISTED") {
+    const count = await db.application.count({
+      where: { roleId: x.roleId, status: "WAITLISTED" },
+    });
+    await db.application.update({
+      where: { id },
+      data: { status: "WAITLISTED", waitlistPosition: count + 1 },
+    });
+  } else {
+    await db.application.update({
+      where: { id },
+      data: { status: "REJECTED", waitlistPosition: null },
+    });
+  }
+
+  await log(u.id, `${status}:application:${id}`);
+  await resequenceWaitlist(x.roleId);
+
+  // Notify worker
+  await notifyUser({
+    userId: x.userId,
+    eventId: x.role.eventId,
+    title: `Application Update: ${status}`,
+    message: `Your application for "${x.role.title}" at "${x.role.event.title}" has been updated to ${status}.`,
+    link: `/volunteer/applications`,
+  });
+
+  revalidatePath("/", "layout");
 }
+
 export async function rate(id: string, f: FormData) {
   const a = await ownApp(id); if (a) await db.application.update({ where: { id }, data: { rating: Math.min(5, Math.max(1, +s(f, "rating") || 5)) } }); revalidatePath("/organizer")
 }
@@ -334,47 +804,51 @@ export async function eventAct(id: string, kind: "APPROVE" | "REJECT") {
 }
 const payable = (id: string) => db.event.findUnique({ where: { id }, include: { roles: { include: { applications: { include: { user: true } } } } } })
 const open = (e: any) => !!e && e.payStatus === "PAID" && (e.endsAt <= new Date() || accepted(e).some(({ a }) => attended(a)))
-// who is owed money: accepted + checked in AND checked out + paid role + bank details saved + not paid yet. Absent volunteers are never in this list.
-const owed = (e: any) => accepted(e).filter(({ a, r }) => payState(a, r, true) === "DUE")
-// admin pays every eligible volunteer of an ended event (each gets the pay of their own role)
+// who is owed money: accepted + checked in AND checked out + paid role + bank details saved + not paid yet. Absent workers are never in this list.
+const owed = (e: any) => accepted(e).filter(({ a, r }) => {
+  const s = payState(a, r, true);
+  return s === "DUE" || s === "APPROVED";
+});
+// admin pays every eligible worker of an ended event (each gets the pay of their own role, calculated for hourly or daily)
 export async function payoutAll(eventId: string) {
   const a = await need("ADMIN"); const e = await payable(eventId); if (!e || !open(e)) return
   let n = 0, sum = 0
   for (const { a: x, r } of owed(e)) {
     const utr = generateUTR()
-    const res = await db.application.updateMany({ where: { id: x.id, paid: false }, data: { paid: true, payout: r.pay, paidAt: new Date() } });
+    const workerPay = rolePersonPay(r)
+    const res = await db.application.updateMany({ where: { id: x.id, paid: false }, data: { paid: true, payout: workerPay, paymentStatus: "PAID", paidAt: new Date() } });
     if (res.count) {
-      n++; sum += r.pay
+      n++; sum += workerPay
 
-      // Safe transaction record via YouPI-PG Gateway
+      // Safe transaction record
       await db.transaction.create({
         data: {
           type: "VOLUNTEER_PAYOUT",
-          amount: r.pay,
+          amount: workerPay,
           currency: "INR",
           fromUserId: a.id,
           toUserId: x.userId,
           eventId: e.id,
           applicationId: x.id,
           reference: utr,
-          paymentMethod: "YOUPI_PG",
+          paymentMethod: "UPI",
           upiNumber: x.user?.upiNumber || "",
           upiId: x.user?.upiId || "",
           status: "SUCCESS",
-          note: `Bulk payout of ₹${r.pay} via YouPI-PG Gateway to ${x.user?.name} for role "${r.title}" in event "${e.title}"`
+          note: `Payout of ₹${workerPay} to ${x.user?.name} for role "${r.title}" in event "${e.title}"`
         }
       })
 
       await notifyUser({
         userId: x.userId,
         eventId: e.id,
-        title: `Salary Payout Received: ₹${r.pay} via YouPI-PG`,
-        message: `Your payout of ₹${r.pay} for role "${r.title}" in "${e.title}" has been successfully transferred to your UPI (${x.user?.upiNumber || x.user?.upiId || "Bank"}) via YouPI Payment Gateway (UTR: ${utr})!`,
+        title: `Salary Payout Received: ₹${workerPay}`,
+        message: `Your payout of ₹${workerPay} for role "${r.title}" in "${e.title}" has been successfully transferred to your UPI (${x.user?.upiNumber || x.user?.upiId || "Bank"}) (UTR: ${utr})!`,
         link: `/volunteer/payments`,
       }).catch(console.error)
     }
   }
-  if (n) await log(a.id, `youpi-bulk-payout:${e.title}:${n} volunteers:${sum}`)
+  if (n) await log(a.id, `bulk-payout:${e.title}:${n} volunteers:${sum}`)
   revalidatePath("/", "layout")
 }
 export async function payoutOne(appId: string) {
@@ -382,13 +856,14 @@ export async function payoutOne(appId: string) {
   const e = await payable(x.role.eventId); if (!e || !open(e)) return
   const row = owed(e).find(y => y.a.id === appId); if (!row) return
   const utr = generateUTR()
-  const res = await db.application.updateMany({ where: { id: appId, paid: false }, data: { paid: true, payout: row.r.pay, paidAt: new Date() } })
+  const workerPay = rolePersonPay(row.r)
+  const res = await db.application.updateMany({ where: { id: appId, paid: false }, data: { paid: true, payout: workerPay, paymentStatus: "PAID", paidAt: new Date() } })
   if (res.count) {
     // Safe transaction record
     await db.transaction.create({
       data: {
         type: "VOLUNTEER_PAYOUT",
-        amount: row.r.pay,
+        amount: workerPay,
         currency: "INR",
         fromUserId: a.id,
         toUserId: row.a.userId,
@@ -403,12 +878,12 @@ export async function payoutOne(appId: string) {
       }
     })
 
-    await log(a.id, `payout:${e.title}:${row.r.pay}:${utr}`)
+    await log(a.id, `payout:${e.title}:${workerPay}:${utr}`)
     await notifyUser({
       userId: row.a.userId,
       eventId: e.id,
-      title: `Payment Received: ₹${row.r.pay}`,
-      message: `Your payout of ₹${row.r.pay} for role "${row.r.title}" in event "${e.title}" has been successfully transferred via UPI (UTR: ${utr})!`,
+      title: `Payment Received: ₹${workerPay}`,
+      message: `Your payout of ₹${workerPay} for role "${row.r.title}" in event "${e.title}" has been successfully transferred via UPI (UTR: ${utr})!`,
       link: `/volunteer/payments`,
     }).catch(console.error)
   }
@@ -576,6 +1051,45 @@ export async function resolveQuery(queryId: string) {
   await log(a.id, `resolved-query:${queryId}`)
   revalidatePath("/admin/queries")
   revalidatePath("/", "layout")
+}
+
+export async function resolveDisputeAndRestore(queryId: string) {
+  const a = await need("ADMIN");
+  const q = await db.supportQuery.findUnique({ where: { id: queryId }, include: { user: true } });
+  if (!q) return;
+
+  await db.$transaction([
+    db.supportQuery.update({
+      where: { id: queryId },
+      data: {
+        status: "RESOLVED",
+        answer: q.answer
+          ? `${q.answer}\n\n[ADMIN RESOLUTION: Dispute granted. Worker reliability score restored & penalties excused.]`
+          : "[ADMIN RESOLUTION: Dispute granted. Worker reliability score restored & penalties excused.]",
+        answeredAt: new Date(),
+      },
+    }),
+    db.user.update({
+      where: { id: q.userId },
+      data: {
+        reliabilityScore: Math.min(100, (q.user.reliabilityScore || 90) + 10),
+        lateCancellations: Math.max(0, (q.user.lateCancellations || 1) - 1),
+        noShows: Math.max(0, (q.user.noShows || 1) - 1),
+        absences: Math.max(0, (q.user.absences || 1) - 1),
+      },
+    }),
+  ]);
+
+  await log(a.id, `resolved-dispute-restored:${q.userId}:${queryId}`);
+  await notifyUser({
+    userId: q.userId,
+    title: "Dispute Resolved & Reliability Restored",
+    message: "Admin has reviewed and granted your dispute. Penalty has been excused and your reliability score has been restored (+10 points).",
+    link: "/volunteer/profile",
+  }).catch(console.error);
+
+  revalidatePath("/admin/queries");
+  revalidatePath("/", "layout");
 }
 
 export async function fileComplaint(f: FormData) {

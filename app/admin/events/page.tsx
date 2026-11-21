@@ -182,28 +182,35 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
               <span className="mute">{accepted(one).length} accepted</span>
             </div>
             {one.roles.map((r: any) => {
-              const apps = r.applications.filter((x: any) => x.status !== "CANCELLED");
+              const apps = r.applications;
               const n = apps.filter((x: any) => x.status === "ACCEPTED").length;
+              const w = apps.filter((x: any) => x.status === "WAITLISTED").length;
               return (
-                <div key={r.id}>
-                  <p style={{ margin: "10px 0 4px" }}>
-                    <b>{r.title}</b>{" "}
-                    <span className="mute">
-                      {n}/{r.slots} accepted
+                <div key={r.id} style={{ marginBottom: "16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "10px 0 6px", flexWrap: "wrap", gap: "8px" }}>
+                    <div>
+                      <b>{r.title}</b>{" "}
+                      <span className="mute" style={{ fontSize: "0.85rem" }}>
+                        · Method: <b>{r.selectionMethod || "FIRST_COME"}</b> · {r.wageType === "HOURLY" ? `${inr(r.pay)}/hr (${r.hours || 0}h)` : `${inr(r.pay)} flat`}
+                      </span>
+                    </div>
+                    <span className="mute" style={{ fontSize: "0.85rem" }}>
+                      <b>{n}/{r.slots}</b> confirmed · <b>{w}</b> on waitlist
                     </span>
-                  </p>
+                  </div>
                   {!apps.length && <p className="mute" style={{ margin: 0 }}>No applications yet.</p>}
                   {apps.map((x: any) => (
-                    <div key={x.id} className="app">
+                    <div key={x.id} className="app" style={{ alignItems: "center" }}>
                       <span className="av">{x.user.name[0]}</span>
-                      <div className="who">
+                      <div className="who" style={{ flex: 1 }}>
                         <b>{x.user.name}</b>
                         <div className="mute">
-                          {x.user.city} · {x.user.skills || "no skills listed"}
+                          {x.user.city} · Score: <b>{x.user.reliabilityScore || 100}%</b> · Exp: {x.user.experienceYears || 0} yrs
+                          {x.status === "CANCELLED" ? ` · Cancelled by ${x.cancelledBy || "worker"}${x.cancellationReason ? ` (${x.cancellationReason})` : ""}` : ""}
                         </div>
                       </div>
-                      <Tag c={x.status === "ACCEPTED" ? "ok" : x.status === "REJECTED" ? "bad" : ""}>
-                        {x.status}
+                      <Tag c={x.status === "ACCEPTED" ? "ok" : x.status === "REJECTED" ? "bad" : x.status === "CANCELLED" ? "bad" : x.status === "WAITLISTED" ? "warn" : ""}>
+                        {x.status === "WAITLISTED" ? `Waitlist #${x.waitlistPosition}` : x.status}
                       </Tag>
                       {x.status === "PENDING" && (
                         <>

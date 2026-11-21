@@ -1,7 +1,10 @@
 // Platform fee the organizer pays on top of the crew pay (default 15%). Change with COMMISSION_PERCENT in .env
 export const RATE = Math.max(0, Number(process.env.COMMISSION_PERCENT ?? 15) || 0)
 export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN")
-export const crewOf = (roles: { slots: number; pay: number }[]) => roles.reduce((n, r) => n + r.slots * r.pay, 0)
+export const rolePersonPay = (r: { pay: number; wageType?: string; hours?: number }) =>
+  r.wageType === "HOURLY" && r.hours ? Math.round(r.pay * r.hours) : r.pay
+export const crewOf = (roles: { slots: number; pay: number; wageType?: string; hours?: number }[]) =>
+  roles.reduce((n, r) => n + r.slots * rolePersonPay(r), 0)
 export const commissionOf = (crew: number) => Math.round((crew * RATE) / 100)
 export const accepted = (e: any): { a: any; r: any }[] => e.roles.flatMap((r: any) => r.applications.filter((a: any) => a.status === "ACCEPTED").map((a: any) => ({ a, r })))
 // a volunteer counts as present only if the organizer marked BOTH check in and check out

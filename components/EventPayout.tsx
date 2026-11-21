@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { payoutAll, payoutOne, refundOne, refundAll } from "@/app/actions";
-import { accepted, inr, when, hm } from "@/lib/money";
+import { payoutOne, refundOne, refundAll } from "@/app/actions";
+import { accepted, inr, when, hm, rolePersonPay } from "@/lib/money";
 import { payState, PAY_LABEL, unusedOf } from "@/lib/payroll";
 import { Tag, Back, Stats } from "./ui";
 import AdminBank from "./AdminBank";
@@ -18,16 +18,16 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
   const ended = e.endsAt <= new Date(),
     ready = e.payStatus === "PAID" && e.status === "PUBLISHED" && ended;
   const rows = accepted(e).map(({ a, r }) => ({ a, r, s: payState(a, r, ended) }));
-  const due = rows.filter((x) => x.s === "DUE"),
-    dueSum = due.reduce((n, x) => n + x.r.pay, 0),
-    paidSum = rows.filter((x) => x.s === "PAID").reduce((n, x) => n + x.a.payout, 0),
+  const due = rows.filter((x) => x.s === "DUE" || x.s === "APPROVED"),
+    dueSum = due.reduce((n, x) => n + rolePersonPay(x.r), 0),
+    paidSum = rows.filter((x) => x.s === "PAID").reduce((n, x) => n + (x.a.payout || rolePersonPay(x.r)), 0),
     unused = ended ? unusedOf(e) : 0;
   const tag = (x: any) =>
     x.s === "PAID" ? (
-      <Tag c="ok">Paid {inr(x.a.payout)}</Tag>
+      <Tag c="ok">Paid {inr(x.a.payout || rolePersonPay(x.r))}</Tag>
     ) : (
-      <Tag c={["ABSENT", "NO_CHECKOUT", "NO_BANK"].includes(x.s) ? "bad" : ""}>
-        {PAY_LABEL[x.s as keyof typeof PAY_LABEL]}
+      <Tag c={["ABSENT", "NO_CHECKOUT", "NO_BANK", "FAILED", "DISPUTED"].includes(x.s) ? "bad" : x.s === "APPROVED" ? "ok" : ""}>
+        {PAY_LABEL[x.s as keyof typeof PAY_LABEL] || x.s}
       </Tag>
     );
 
@@ -56,74 +56,6 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
         <p className="mute">
           Each volunteer is paid the pay rate of their role upon verified attendance (both Check-In and Check-Out marked). Absent volunteers and incomplete attendances are not eligible for payout.
         </p>
-
-        {/* Bulk Payout & Attendance Check Banner */}
-        {due.length > 0 && (
-          <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)",
-              border: "1.5px solid #86efac",
-              borderRadius: "14px",
-              margin: "16px 0",
-              padding: "16px 18px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "12px",
-              }}
-            >
-              <div>
-                <b style={{ fontSize: "1.05rem", color: "#065f46" }}>
-                  YouPI-PG Bulk Payments Module ({due.length} Volunteers Verified)
-                </b>
-                <div className="mute" style={{ fontSize: "0.84rem", color: "#1e293b", marginTop: "2px" }}>
-                  Attendance verified. Disbursing <b>{inr(dueSum)}</b> directly to volunteer UPI accounts via YouPI-PG Gateway.
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                <a
-                  href={`/admin/payouts/csv?id=${e.id}`}
-                  className="btn"
-                  download
-                  style={{
-                    background: "#0284c7",
-                    color: "#fff",
-                    fontWeight: 600,
-                    textDecoration: "none",
-                    borderRadius: "8px",
-                  }}
-                  title="Download complete CSV with UPI Numbers, UPI IDs, Account Numbers & IFSC"
-                >
-                  Download UPI Roster CSV
-                </a>
-
-                <form action={payoutAll.bind(null, e.id)}>
-                  <button
-                    disabled={!ready}
-                    style={{
-                      background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                      color: "#fff",
-                      fontWeight: 700,
-                      padding: "10px 20px",
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 14px rgba(5,150,105,0.3)",
-                      cursor: ready ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    Pay All {inr(dueSum)} ({due.length} Volunteers via YouPI-PG)
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="role">
           <div className="row">
@@ -167,13 +99,15 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
           {!rows.length && <p className="mute">No accepted volunteers yet.</p>}
 
           {rows.map((x) => {
+            const workerPay = rolePersonPay(x.r);
+            const isHourly = x.r.wageType === "HOURLY";
             const upiTarget =
               x.a.user.upiId || (x.a.user.upiNumber ? `${x.a.user.upiNumber}@upi` : "");
             const upiLink = upiTarget
               ? buildUpiDeepLink({
                   pa: upiTarget,
                   pn: x.a.user.name,
-                  am: x.r.pay,
+                  am: workerPay,
                   tn: `CrewHub Payout: ${e.title}`,
                 })
               : null;
@@ -185,7 +119,7 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                 <div className="who" style={{ flex: 1 }}>
                   <b>{x.a.user.name}</b>
                   <div className="mute">
-                    {x.r.title} · pay <b>{inr(x.r.pay)}</b> · In: <b>{hm(x.a.checkIn)}</b> · Out:{" "}
+                    {x.r.title} · {isHourly ? `${inr(x.r.pay)}/hr × ${x.r.hours || 0}h (${inr(workerPay)})` : `pay ${inr(workerPay)}`} · In: <b>{hm(x.a.checkIn)}</b> · Out:{" "}
                     <b>{hm(x.a.checkOut)}</b>
                     {x.a.checkIn && x.a.checkOut ? (
                       <span style={{ color: "#16a34a", fontWeight: 700 }}> · Attended</span>
@@ -199,7 +133,7 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                 {x.a.paymentRequestedAt && !x.a.paid && <Tag c="bad">Payment Requested</Tag>}
                 {tag(x)}
 
-                {x.s === "DUE" && (
+                {(x.s === "DUE" || x.s === "APPROVED") && (
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                     {upiLink && (
                       <a
@@ -224,7 +158,7 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                         disabled={!ready}
                         style={{ padding: "5px 10px", fontSize: "0.8rem", borderRadius: "6px" }}
                       >
-                        Mark Paid ({inr(x.r.pay)})
+                        Mark Paid ({inr(workerPay)})
                       </button>
                     </form>
                   </div>
@@ -233,7 +167,7 @@ export default async function EventPayout({ id, backHref }: { id: string; backHr
                 {(x.s === "ABSENT" || x.s === "NO_CHECKOUT") && x.r.pay > 0 && (
                   <form action={refundOne.bind(null, x.a.id)}>
                     <button className="bad" disabled={!ready}>
-                      Refund {inr(x.r.pay)}
+                      Refund {inr(workerPay)}
                     </button>
                   </form>
                 )}

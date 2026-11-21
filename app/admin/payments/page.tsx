@@ -3,10 +3,8 @@ import { db } from "@/lib/db";
 import { need } from "@/lib/auth";
 import { Tag, Stats } from "@/components/ui";
 import EventPayout from "@/components/EventPayout";
-import { payoutAll } from "@/app/actions";
-import { inr, when, RATE, accepted, dt } from "@/lib/money";
+import { inr, when, RATE, accepted, dt, rolePersonPay } from "@/lib/money";
 import { payState, unusedOf } from "@/lib/payroll";
-import FinancialReportGenerator from "@/components/FinancialReportGenerator";
 
 export default async function Page({ searchParams: sp }: { searchParams: { id?: string } }) {
   await need("ADMIN");
@@ -50,8 +48,8 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
     (n, e) =>
       n +
       rows(e)
-        .filter((x) => x.s === "DUE" || x.s === "NO_BANK")
-        .reduce((m, x) => m + x.r.pay, 0),
+        .filter((x) => x.s === "DUE" || x.s === "NO_BANK" || x.s === "APPROVED")
+        .reduce((m, x) => m + rolePersonPay(x.r), 0),
     0
   );
   const unused = live.filter((e) => e.endsAt <= now).reduce((n, e) => n + unusedOf(e), 0),
@@ -67,59 +65,6 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
       event: { select: { id: true, title: true } },
     },
   });
-
-  // Financial applications for salary payout reporting
-  const paidApps = await db.application.findMany({
-    where: { paid: true },
-    include: {
-      user: { select: { name: true, email: true, upiId: true, upiNumber: true } },
-      role: { select: { title: true, event: { select: { id: true, title: true } } } },
-    },
-  });
-
-  const financialApplications = paidApps.map((a) => ({
-    id: a.id,
-    volunteerName: a.user?.name || "Volunteer",
-    volunteerEmail: a.user?.email || "",
-    upi: a.user?.upiNumber || a.user?.upiId || "",
-    eventTitle: a.role?.event?.title || "Event",
-    eventId: a.role?.event?.id || "",
-    roleTitle: a.role?.title || "Crew",
-    payout: a.payout,
-    paidAt: a.paidAt ? a.paidAt.toISOString() : null,
-  }));
-
-  const financialEvents = all.map((e) => ({
-    id: e.id,
-    title: e.title,
-    city: e.city,
-    category: e.category,
-    organizerName: e.organizer.orgName || e.organizer.name,
-    startsAt: e.startsAt.toISOString(),
-    endsAt: e.endsAt.toISOString(),
-    paidAt: e.paidAt ? e.paidAt.toISOString() : null,
-    refundedAt: e.refundedAt ? e.refundedAt.toISOString() : null,
-    crewTotal: e.crewTotal,
-    commission: e.commission,
-    refunded: e.refunded,
-    payStatus: e.payStatus,
-    rolesCount: e.roles.length,
-    volunteersCount: accepted(e).length,
-  }));
-
-  const financialTransactions = transactions.map((t) => ({
-    id: t.id,
-    type: t.type,
-    amount: t.amount,
-    reference: t.reference,
-    paymentMethod: t.paymentMethod,
-    status: t.status,
-    note: t.note,
-    createdAt: t.createdAt.toISOString(),
-    fromName: t.fromUser?.orgName || t.fromUser?.name || "Admin",
-    toName: t.toUser?.orgName || t.toUser?.name || "Admin",
-    eventTitle: t.event?.title || "",
-  }));
 
   return (
     <div className="compact">
@@ -153,7 +98,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
           </span>
         </div>
         <p className="mute">
-          All organizer event payments and volunteer bulk payouts are permanently tracked with bank UTR and UPI numbers.
+          All organizer event payments and volunteer payouts are permanently tracked with bank UTR and UPI numbers.
         </p>
 
         {!transactions.length ? (
@@ -242,27 +187,22 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
           <div>
             <h2 style={{ margin: 0 }}>Approved Events History</h2>
             <p className="mute" style={{ margin: "4px 0 0" }}>
-              Manage event attendance and execute bulk volunteer payouts.
+              Manage event attendance and volunteer payouts.
             </p>
           </div>
 
-          {/* Straight Right Corner of History: Financial Management Report Generator */}
-          <FinancialReportGenerator
-            events={financialEvents}
-            applications={financialApplications}
-            transactions={financialTransactions}
-            defaultMonth="2026-11"
-            defaultYear="2026"
-          />
+          <span className="mute" style={{ fontSize: "0.85rem" }}>
+            {all.length} event{all.length === 1 ? "" : "s"}
+          </span>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "14px" }}>
           {all.map((e) => {
             const r = rows(e);
-            const dueVolunteers = r.filter((x) => x.s === "DUE");
-            const dueSum = dueVolunteers.reduce((n, x) => n + x.r.pay, 0);
+            const dueVolunteers = r.filter((x) => x.s === "DUE" || x.s === "APPROVED");
+            const dueSum = dueVolunteers.reduce((n, x) => n + rolePersonPay(x.r), 0);
             const paidVolunteers = r.filter((x) => x.s === "PAID");
-            const paidSum = paidVolunteers.reduce((n, x) => n + (x.a.payout || x.r.pay), 0);
+            const paidSum = paidVolunteers.reduce((n, x) => n + (x.a.payout || rolePersonPay(x.r)), 0);
             const noBankVolunteers = r.filter((x) => x.s === "NO_BANK");
             const isEnded = e.endsAt <= now;
 
@@ -306,7 +246,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                     </b>
                     <div className="mute" style={{ fontSize: "0.78rem", marginTop: "2px" }}>
                       {dueSum > 0 ? (
-                        <span style={{ color: "#059669", fontWeight: 600 }}>Ready for bulk payout</span>
+                        <span style={{ color: "#059669", fontWeight: 600 }}>Ready for payout</span>
                       ) : paidVolunteers.length > 0 ? (
                         <span style={{ color: "#059669" }}>Disbursed ({paidVolunteers.length} paid)</span>
                       ) : (
@@ -316,7 +256,6 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                   </div>
                 </div>
 
-                {/* Bulk Payout Action Row */}
                 <div
                   style={{
                     display: "flex",
@@ -332,12 +271,12 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                     {dueVolunteers.length > 0 ? (
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#065f46", fontSize: "0.9rem", fontWeight: 600 }}>
                         <span>
-                          {dueVolunteers.length} volunteer{dueVolunteers.length === 1 ? "" : "s"} checked out with verified UPI ({inr(dueSum)} total due)
+                          {dueVolunteers.length} volunteer{dueVolunteers.length === 1 ? "" : "s"} checked out ({inr(dueSum)} total due)
                         </span>
                       </div>
                     ) : paidVolunteers.length > 0 ? (
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#059669", fontSize: "0.9rem", fontWeight: 600 }}>
-                        <span>All {paidVolunteers.length} volunteers paid via YouPI-PG Gateway</span>
+                        <span>All {paidVolunteers.length} volunteers paid</span>
                       </div>
                     ) : (
                       <span className="mute" style={{ fontSize: "0.85rem" }}>
@@ -347,7 +286,7 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
 
                     {noBankVolunteers.length > 0 && (
                       <span style={{ fontSize: "0.8rem", color: "#d97706", background: "#fef3c7", padding: "2px 8px", borderRadius: "4px" }}>
-                        {noBankVolunteers.length} missing UPI details
+                        {noBankVolunteers.length} missing bank/UPI details
                       </span>
                     )}
                   </div>
@@ -360,31 +299,6 @@ export default async function Page({ searchParams: sp }: { searchParams: { id?: 
                     >
                       View Details &amp; Attendance
                     </Link>
-
-                    {dueVolunteers.length > 0 && (
-                      <form action={payoutAll.bind(null, e.id)}>
-                        <button
-                          type="submit"
-                          className="btn"
-                          style={{
-                            background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                            color: "#ffffff",
-                            fontWeight: 700,
-                            padding: "9px 20px",
-                            borderRadius: "8px",
-                            border: "none",
-                            cursor: "pointer",
-                            boxShadow: "0 2px 8px rgba(5, 150, 105, 0.35)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontSize: "0.92rem",
-                          }}
-                        >
-                          Pay All ({inr(dueSum)} for {dueVolunteers.length} {dueVolunteers.length === 1 ? "Person" : "People"} via YouPI-PG)
-                        </button>
-                      </form>
-                    )}
                   </div>
                 </div>
               </div>

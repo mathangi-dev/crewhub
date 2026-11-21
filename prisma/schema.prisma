@@ -41,6 +41,14 @@ model User {
   latitude        Float?
   longitude       Float?
   lastLocationAt  DateTime?
+  experienceYears   Float     @default(0)
+  reliabilityScore  Float     @default(100.0) // 0-100 score based on attendance, punctuality and feedback
+  completedShifts   Int       @default(0)
+  lateCancellations Int       @default(0)
+  noShows           Int       @default(0)
+  disputedRecords   Int       @default(0)
+  availabilities    WorkerAvailability[]
+  backupRegistrations BackupRegistration[]
   notifications   Notification[]
   events          Event[]
   applications    Application[]
@@ -93,36 +101,91 @@ model Notification {
 }
 
 model EventRole {
-  id           String        @id @default(cuid())
-  title        String
-  slots        Int
-  skills       String        @default("")
-  pay          Int           @default(0) // INR per person, 0 = unpaid volunteer
-  hours        Float         @default(0) // shift length in hours
-  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId      String
-  applications Application[]
+  id                String        @id @default(cuid())
+  title             String
+  slots             Int
+  skills            String        @default("")
+  pay               Int           @default(0) // INR per person, 0 = unpaid volunteer
+  hours             Float         @default(0) // shift length in hours
+  description       String        @default("")
+  wageType          String        @default("HOURLY") // HOURLY | DAILY
+  experienceReq     String        @default("None") // None | Beginner (1yr) | Intermediate (2+ yrs) | Expert
+  locationSpecific  String        @default("")
+  closingAt         DateTime?
+  selectionMethod   String        @default("FIRST_COME") // FIRST_COME | AUTOMATIC | MANUAL
+  isUrgentVacancy   Boolean       @default(false)
+  urgentBroadcastAt DateTime?
+  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId           String
+  applications      Application[]
+  backupWorkers     BackupRegistration[]
 }
 
 model Application {
-  id            String    @id @default(cuid())
-  role          EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  roleId        String
-  user          User      @relation(fields: [userId], references: [id])
-  userId        String
-  status        String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED
-  checkIn       DateTime?
-  checkOut      DateTime?
-  paid          Boolean   @default(false)
-  absent        Boolean   @default(false) // marked absent by the organizer, or automatically after the event
-  absentCounted Boolean   @default(false) // this absence was already added to the volunteer's absence count
-  refunded      Boolean   @default(false) // absent / no check-out: this role's pay was refunded to the organizer
-  rating        Int?
-  payout        Int       @default(0) // amount admin paid this volunteer (INR)
-  paidAt        DateTime?
+  id                 String    @id @default(cuid())
+  role               EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId             String
+  user               User      @relation(fields: [userId], references: [id])
+  userId             String
+  status             String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED | WAITLISTED | OFFERED | WITHDRAWN
+  checkIn            DateTime?
+  checkOut           DateTime?
+  paid               Boolean   @default(false)
+  absent             Boolean   @default(false) // marked absent by the organizer, or automatically after the event
+  absentCounted      Boolean   @default(false) // this absence was already added to the volunteer's absence count
+  refunded           Boolean   @default(false) // absent / no check-out: this role's pay was refunded to the organizer
+  rating             Int?
+  payout             Int       @default(0) // amount admin paid this volunteer (INR)
+  paidAt             DateTime?
   paymentRequestedAt DateTime?
+  
+  // Waiting List & Replacement System
+  waitlistPosition   Int?
+  isBackup           Boolean   @default(false)
+  offerExpiresAt     DateTime?
+  
+  // Cancellation Tracking
+  cancelledAt        DateTime?
+  cancellationReason String    @default("")
+  cancelledBy        String?   // WORKER | ORGANIZER | SYSTEM
+  isEmergency        Boolean   @default(false)
+  
+  // Selection Scoring
+  matchScore         Float?
+
+  // Extended Payment Status: PENDING | APPROVED | PROCESSING | PAID | FAILED | DISPUTED
+  paymentStatus      String    @default("PENDING")
 
   @@unique([roleId, userId])
+  @@index([roleId, status, waitlistPosition])
+}
+
+model WorkerAvailability {
+  id        String   @id @default(cuid())
+  worker    User     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  workerId  String
+  date      DateTime
+  startTime String   @default("09:00")
+  endTime   String   @default("18:00")
+  isAllDay  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([workerId, date])
+}
+
+model BackupRegistration {
+  id               String    @id @default(cuid())
+  role             EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId           String
+  worker           User      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  workerId         String
+  standbyStart     DateTime
+  standbyEnd       DateTime
+  standbyAllowance Int       @default(0)
+  status           String    @default("ACTIVE") // ACTIVE | CLAIMED | RELEASED
+  createdAt        DateTime  @default(now())
+
+  @@unique([roleId, workerId])
 }
 
 model Report {

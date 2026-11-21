@@ -77,7 +77,7 @@ export default async function Checkout({ params }: { params: { id: string } }) {
           ]}
         />
 
-        {/* Dual Payment Options: Razorpay + Direct UPI */}
+        {/* Event Escrow Payment */}
         <CheckoutPaymentModule
           eventId={e.id}
           total={total}

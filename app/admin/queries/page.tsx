@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { need } from "@/lib/auth";
-import { answerQuery, resolveQuery } from "@/app/actions";
+import { answerQuery, resolveQuery, resolveDisputeAndRestore } from "@/app/actions";
 import { Tag, Back, Stats } from "@/components/ui";
 import SubmitBtn from "@/components/SubmitBtn";
 import Link from "next/link";
@@ -90,11 +90,30 @@ export default async function Page({ searchParams: sp }: { searchParams: { s?: s
               </div>
 
               {selectedQuery.status !== "RESOLVED" && (
-                <form action={resolveQuery.bind(null, selectedQuery.id)}>
-                  <button className="ghost" style={{ fontSize: "0.82rem" }}>
-                    Mark Resolved
-                  </button>
-                </form>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {(selectedQuery.category === "COMPLAINT" || selectedQuery.subject.toLowerCase().includes("dispute")) && (
+                    <form action={resolveDisputeAndRestore.bind(null, selectedQuery.id)}>
+                      <button
+                        style={{
+                          fontSize: "0.82rem",
+                          background: "#059669",
+                          color: "#fff",
+                          fontWeight: 600,
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Grant Dispute &amp; Restore Reliability (+10 pts)
+                      </button>
+                    </form>
+                  )}
+                  <form action={resolveQuery.bind(null, selectedQuery.id)}>
+                    <button className="ghost" style={{ fontSize: "0.82rem" }}>
+                      Mark Resolved
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
 

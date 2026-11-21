@@ -184,7 +184,7 @@ export default function FinancialReportGenerator({
     if (filteredApplications.length > 0) {
       rows.push([]);
       rows.push([
-        "VOLUNTEER SALARY DISBURSEMENTS (YouPI-PG)",
+        "VOLUNTEER SALARY DISBURSEMENTS",
         "Volunteer Name",
         "Email",
         "UPI Account",
@@ -673,7 +673,7 @@ export default function FinancialReportGenerator({
                     {inr(totalCrewPayouts)}
                   </b>
                   <div style={{ fontSize: "0.76rem", color: "#7e22ce" }}>
-                    Disbursed via YouPI-PG Gateway
+                    Disbursed directly to volunteers
                   </div>
                 </div>
 
@@ -735,7 +735,7 @@ export default function FinancialReportGenerator({
                       alignItems: "center",
                     }}
                   >
-                    YouPI-PG 0% Gateway Fee
+                    0% Platform Gateway Fee
                   </span>
                   <span
                     style={{
@@ -859,7 +859,7 @@ export default function FinancialReportGenerator({
               }}
             >
               <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
-                Generated securely via CrewHub Financial Management Engine &amp; YouPI-PG Ledger.
+                Generated securely via CrewHub Financial Management Engine.
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
