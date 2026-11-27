@@ -1,39 +1,79 @@
-# CrewHub
-Next.js 14 (App Router, server actions) + Prisma + SQLite (swap provider to postgresql for production).
+# CrewHub — On-Demand Event Workforce Platform
+
+CrewHub is an event workforce management platform connecting event organizers with qualified temporary staff (crew & volunteers). Built with Next.js 14 (App Router), TypeScript, Prisma ORM, and MySQL 8.
+
+---
+
+## 🚀 Quick Start for Development & Testing
+
+### 1. Prerequisites
+- **Node.js**: v18.17+ or v20+
+- **MySQL**: 8.0+ running on `localhost:3306` with database `crewhub`
+
+### 2. Setup & Run
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Run migrations
+npx prisma migrate dev
+
+# 3. Seed demo accounts & events
+npm run db:seed
+
+# 4. Start dev server
+npm run dev
 ```
-npm install       # also runs `prisma generate`
-npm run setup     # resets the database (db push --force-reset) and seeds demo data
-npm run dev       # http://localhost:3000
+
+Visit: **`http://localhost:3000`**
+
+### 3. Run Automated Tests & Type Checks
+```bash
+# Run unit test suite (Payments, Discipline, Validation, Location)
+npm test
+
+# Run TypeScript static analysis
+npx tsc --noEmit
 ```
-Seed logins (password `password123`): admin@eventlink.test, org@eventlink.test, vol@eventlink.test
-Also seeded: priya@, karthik@, sneha@, ravi@ (approved volunteers), divya@ (awaiting approval), rahul@ (suspended), nimbus@ (organizer awaiting approval), all `@eventlink.test`.
 
-## Setup note (new)
-`.env` must contain `BANK_SECRET` (long random text). It encrypts saved bank account numbers. Do not lose it and do not commit `.env`.
+---
 
-## How the money flow works now
-1. Organizer fills the Create Event form and clicks **Continue to payment**. The event is only a hidden DRAFT at this point.
-2. The checkout page shows crew pay + platform fee (`COMMISSION_PERCENT`, default 15%). Example: 5 people x Rs.100 = Rs.500, fee Rs.75, total Rs.575. The event is created only when the organizer pays this.
-3. Admin sees the paid event, approves it, and it goes live.
-4. Volunteers apply. The admin accepts them. Accepted volunteers show up on the organizer's dashboard (Manage Events) for attendance.
-5. The organizer marks check in and check out. Volunteers and admin both see these times.
-6. After the event ends the admin pays from Payouts. Only volunteers with BOTH check in and check out are paid, each the pay of their role, and only if they saved bank details. Absent volunteers get nothing. Money for absentees and unfilled slots is shown as "Unused crew funds" in Admin > Payments.
+## 🔑 Demo Test Accounts
 
-## Refunds and CSV
-- Admin > Payouts > View attendance: each absent volunteer (or one without check-out) has a **Refund** button, and the event has **Refund unused to organizer** (absent + unfilled slots). The platform fee is never refunded. The organizer sees the refund in History.
-- **Download CSV** (per event, or all events) is built fresh from the database each time. It lists every volunteer who is ready to be paid: IDs, name, event, role, check in/out, bank details, amount, total. It holds full account numbers, is admin only, and every download is written to the audit log.
+| Role | Email | Password | Primary Portal |
+| :--- | :--- | :--- | :--- |
+| **Volunteer (Worker)** | `volunteer@crewhub.demo` | `Volunteer@123` | [`/worker`](http://localhost:3000/worker) |
+| **Event Organizer** | `organizer@crewhub.demo` | `Organizer@123` | [`/organizer`](http://localhost:3000/organizer) |
+| **Super Admin** | `admin@crewhub.demo` | `Admin@123` | [`/admin`](http://localhost:3000/admin) |
 
-## Bank details
-Volunteers and organizers add them in Profile. The account number is encrypted (AES-256-GCM) before saving, only the last 4 digits are visible to the user, and only the admin can open the full details (Payouts, and the Volunteers / Organizers detail pages).
+---
 
-Payment is simulated inside `payEvent` in `app/actions.ts`. Before going live, verify the Razorpay payment signature there.
+## 📋 Comprehensive Testing Guide
 
-## Absence rule and Payments tab (new)
-- Organizer > Manage Events: each accepted volunteer has **Check in**, **Absent** (event started, not checked in) and **Undo absent** (until the absence is counted).
-- Anyone who does not complete BOTH check in and check out is marked **absent automatically** 2 hours after the event ends (`GRACE_MS` in `lib/money.ts`).
-- Every absence is added to the volunteer's count. At **5 absences** (`MAX_ABSENCES`) the account is suspended automatically and upcoming applications are cancelled. Admin > Volunteers > Reinstate resets the count to 0.
-- Organizer > **Payments**: payment done, payment pending (with Pay now) and refunds by admin. Organizer > History shows pay details only for completed events.
-- Database changed (`User.absences`, `Application.absent`, `Application.absentCounted`): run `npx prisma db push` (keeps data) or `npm run setup` (resets + reseeds).
+For a complete role-by-role test plan, step-by-step test cases, edge cases, responsive testing matrix, and bug reporting templates, see:
 
-## Volunteer terms
-Every volunteer must tick the declaration on `/terms` after logging in, before using the volunteer area or applying to any event. The wording is in `lib/terms.ts`; change `TERMS_VERSION` there to make everyone agree again. The admin sees the acceptance date on the volunteer's detail page. Needs `npx prisma db push` (new fields `termsVersion`, `termsAcceptedAt`).
+👉 **[TESTING_GUIDE.md](./TESTING_GUIDE.md)**
+
+### Key Features Covered in Testing:
+1. **Organizer 10% Platform Fee**: Mandatory 10% fee calculated on total worker wage budget prior to publishing.
+2. **Direct 1-Click Worker UPI Payouts**: Organizers pay workers directly via UPI (zero wage deductions) and record UTR references.
+3. **Event Filter Capsule Bar**: Filter confirmed crew, wage budgets, settled/due amounts, and payment modals by individual events.
+4. **24-Hour Payment Deadline**: Automatically started when an organizer marks a worker as **Checked Out**.
+5. **Reliability & Discipline Policy**:
+   - 3 shift cancellations: Warning notification sent.
+   - 5 shift cancellations: Automated volunteer account suspension.
+   - Overdue worker payments (> 24 hours): Organizer restricted from publishing new events.
+6. **Substitute Crew Management**: Dedicated backup substitute role section with conditional payment rules (paid only if worked).
+7. **Super Admin Dashboard**: Real-time platform fee auditing, overdue payment escalation, dispute resolution, and account suspension controls.
+8. **Universal Mobile Responsiveness**: Seamless adaptive layouts from 320px mobile displays up to 4K monitors.
+
+---
+
+## 🛠️ Tech Stack & Architecture
+
+- **Framework**: Next.js 14 (App Router, Server Actions, Route Handlers)
+- **Language**: TypeScript 5.6
+- **Database & ORM**: MySQL 8 + Prisma ORM (Decimal precision for financial amounts)
+- **Authentication**: JWT in HTTP-only cookies (`jose`), password hashing (`bcryptjs`), rate limiting
+- **Styling**: Vanilla CSS with modern custom properties, Joby-style capsule navigation, and responsive media queries
+- **Testing**: Vitest 2.1

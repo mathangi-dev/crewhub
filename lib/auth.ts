@@ -1,80 +1,61 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { db } from "./db";
+import type { NextResponse } from "next/server";
+import type { Role } from "@prisma/client";
 
-const key = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-secret");
+export const COOKIE = "crewhub_session";
+const MAX_AGE = 60 * 60 * 24 * 7;
 
-export async function setSession(id: string) {
-  const t = await new SignJWT({ id })
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("7d")
-    .sign(key);
-  cookies().set("el", t, { httpOnly: true, path: "/", sameSite: "lax" });
+function secret() {
+  const s = process.env.JWT_SECRET;
+  if (!s || s.length < 32) throw new Error("JWT_SECRET must be set to 32+ characters");
+  return new TextEncoder().encode(s);
 }
 
-export async function me() {
-  const t = cookies().get("el")?.value;
-  if (!t) return null;
+export const roleHome: Record<Role, string> = {
+  WORKER: "/worker",
+  ORGANIZER: "/organizer",
+  ADMIN: "/admin",
+};
+
+export async function signSession(userId: string, role: Role) {
+  return new SignJWT({ role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(userId)
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(secret());
+}
+
+export async function readSession(): Promise<{ id: string; role: Role } | null> {
+  const token = cookies().get(COOKIE)?.value;
+  if (!token) return null;
   try {
-    const { payload } = await jwtVerify(t, key);
-    const u = await db.user.findUnique({ where: { id: payload.id as string } });
-    return u && !u.suspended ? u : null;
+    const { payload } = await jwtVerify(token, secret());
+    return { id: payload.sub as string, role: payload.role as Role };
   } catch {
     return null;
   }
 }
 
-export type RoleType = "ADMIN" | "ORGANIZER" | "WORKER" | "VOLUNTEER";
-
-export function isWorkerRole(role: string): boolean {
-  return role === "WORKER" || role === "VOLUNTEER";
-}
-
-export function isOrganizerRole(role: string): boolean {
-  return role === "ORGANIZER";
-}
-
-export function isAdminRole(role: string): boolean {
-  return role === "ADMIN";
-}
-
-export async function need(role: RoleType | string) {
-  const u = await me();
-  if (!u) redirect("/login");
-  if (role === "WORKER" || role === "VOLUNTEER") {
-    if (!isWorkerRole(u.role)) redirect("/login");
-  } else if (u.role !== role) {
-    redirect("/login");
-  }
-  return u;
-}
-
-/**
- * Resource-level authorization: Verifies the authenticated organizer owns the event.
- */
-export async function needEventOwner(eventId: string) {
-  const u = await need("ORGANIZER");
-  const event = await db.event.findFirst({
-    where: { id: eventId, organizerId: u.id },
+export function setSessionCookie(res: NextResponse, token: string) {
+  res.cookies.set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: MAX_AGE,
   });
-  if (!event) {
-    throw new Error("Unauthorized: You do not own this event.");
-  }
-  return { u, event };
 }
 
-/**
- * Resource-level authorization: Verifies the authenticated worker owns the application.
- */
-export async function needApplicationOwner(applicationId: string) {
-  const u = await need("WORKER");
-  const app = await db.application.findFirst({
-    where: { id: applicationId, userId: u.id },
-    include: { role: { include: { event: true } } },
+export function clearSessionCookie(res: NextResponse) {
+  res.cookies.set(COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
   });
-  if (!app) {
-    throw new Error("Unauthorized: Application not found or access denied.");
-  }
-  return { u, app };
+  res.cookies.delete(COOKIE);
 }

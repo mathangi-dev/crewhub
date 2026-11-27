@@ -3,240 +3,314 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  WORKER
+  ORGANIZER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  SUSPENDED
+  CANCELLED
+  COMPLETED
+}
+
+enum WageType {
+  HOURLY
+  DAILY
+}
+
+enum ApplicationStatus {
+  CONFIRMED
+  WAITLISTED
+  CANCELLED
+  REJECTED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  LATE
+  ABSENT
+  NO_SHOW
+}
+
+// RECORDED = organizer entered UPI details. CONFIRMED = worker confirmed receipt. Nobody else can set CONFIRMED.
+enum PaymentStatus {
+  PENDING
+  RECORDED
+  CONFIRMED
+  DISPUTED
+}
+
+enum FeeStatus {
+  PENDING
+  PAID
+  WAIVED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
 model User {
-  id              String        @id @default(cuid())
-  email           String        @unique
-  password        String
-  name            String
-  role            String // VOLUNTEER | ORGANIZER | ADMIN
-  city            String        @default("")
-  skills          String        @default("")
-  interests       String        @default("")
-  availability    String        @default("")
-  bio             String        @default("")
-  orgName         String        @default("")
-  verifyInfo      String        @default("")
-  verified        Boolean       @default(false)
-  approval        String        @default("PENDING") // PENDING | APPROVED | REJECTED (volunteers and organizers)
-  suspended       Boolean       @default(false)
-  termsVersion    String        @default("") // version of the volunteer terms this user agreed to ("" = not yet)
-  termsAcceptedAt DateTime?
-  absences        Int           @default(0) // counted absences (auto-suspended at MAX_ABSENCES, reset when the admin reinstates)
-  // bank details (volunteers get paid here, organizers get refunds here). The account number is stored ENCRYPTED.
-  bankHolder      String        @default("")
-  bankName        String        @default("")
-  bankAccountEnc  String        @default("") // AES-256-GCM encrypted, see lib/bank.ts
-  bankLast4       String        @default("") // only the last 4 digits, safe to show
-  bankIfsc        String        @default("")
-  upiId           String        @default("")
-  upiNumber       String        @default("")
-  age             Int?
-  gender          String        @default("")
-  phone           String        @default("")
-  website         String        @default("")
-  latitude        Float?
-  longitude       Float?
-  lastLocationAt  DateTime?
-  experienceYears   Float     @default(0)
-  reliabilityScore  Float     @default(100.0) // 0-100 score based on attendance, punctuality and feedback
-  completedShifts   Int       @default(0)
-  lateCancellations Int       @default(0)
-  noShows           Int       @default(0)
-  disputedRecords   Int       @default(0)
-  availabilities    WorkerAvailability[]
-  backupRegistrations BackupRegistration[]
-  notifications   Notification[]
-  events          Event[]
-  applications    Application[]
-  sentTransactions     Transaction[] @relation("SentTransactions")
-  receivedTransactions Transaction[] @relation("ReceivedTransactions")
-  supportQueries       SupportQuery[]
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  name             String
+  role             Role
+  status           AccountStatus     @default(ACTIVE)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  workerProfile    WorkerProfile?
+  organizerProfile OrganizerProfile?
+  events           Event[]
+  applications     Application[]
+  notifications    Notification[]
+  tickets          SupportTicket[]   @relation("TicketOwner")
+  assignedTickets  SupportTicket[]   @relation("TicketAssignee")
+  reportsMade      Report[]          @relation("Reporter")
+  reportsAgainst   Report[]          @relation("ReportedUser")
+  auditLogs        AuditLog[]
+
+  @@index([role, status])
+}
+
+model WorkerProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone               String?
+  upi                 String?
+  address             String?
+  area                String?
+  city                String?
+  pincode             String?
+  latitude            Decimal? @db.Decimal(9, 6)
+  longitude           Decimal? @db.Decimal(9, 6)
+  radiusKm            Int      @default(15)
+  nearbyNotif         Boolean  @default(true)
+  skills              Json?
+  experience          String?  @db.Text
+  preferredCategories Json?
+  emailNotif          Boolean  @default(true)
+  pushNotif           Boolean  @default(true)
+  remindNotif         Boolean  @default(true)
+}
+
+model OrganizerProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgName     String
+  phone       String?
+  description String? @db.Text
+  verified    Boolean @default(false)
 }
 
 model Event {
-  id              String         @id @default(cuid())
-  title           String
-  category        String
-  description     String
-  city            String
-  venue           String
-  latitude        Float?
-  longitude       Float?
-  radiusKm        Float          @default(20)
-  locationAddress String         @default("")
-  startsAt        DateTime
-  endsAt          DateTime
-  status          String         @default("PENDING") // DRAFT (not paid yet, invisible) | PENDING | PUBLISHED | REJECTED | CANCELLED
-  crewTotal       Int            @default(0) // total crew pay the organizer funds (INR)
-  commission      Int            @default(0) // platform commission on top of crewTotal (INR)
-  payStatus       String         @default("UNPAID") // UNPAID | PAID | REFUNDED (organizer to admin)
-  paidAt          DateTime?
-  refunded        Int            @default(0) // unused crew money refunded to the organizer by the admin (INR)
-  refundedAt      DateTime?
-  organizer       User           @relation(fields: [organizerId], references: [id])
-  organizerId     String
-  cardImage       String?
-  poster          String?
-  roles           EventRole[]
-  notifications   Notification[]
-  transactions    Transaction[]
+  id                  String        @id @default(cuid())
+  organizerId         String
+  organizer           User          @relation(fields: [organizerId], references: [id])
+  title               String
+  description         String        @db.Text
+  category            String
+  venue               String
+  city                String
+  latitude            Decimal?      @db.Decimal(9, 6)
+  longitude           Decimal?      @db.Decimal(9, 6)
+  posterUrl           String?
+  startsAt            DateTime
+  endsAt              DateTime
+  applicationDeadline DateTime
+  status              EventStatus   @default(DRAFT)
+  suspendedReason     String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  jobs                EventJob[]
+  applications        Application[]
+  platformFee         PlatformFee?
+  reports             Report[]
+
+  @@index([status, startsAt])
+  @@index([organizerId, status])
+  @@index([city])
 }
 
-model Notification {
-  id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId   String?
-  title     String
-  message   String
-  link      String?
-  distance  Float?
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
+model EventJob {
+  id              String        @id @default(cuid())
+  eventId         String
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name            String
+  vacancies       Int
+  substituteCount Int           @default(0)
+  wageType        WageType
+  wage            Decimal       @db.Decimal(10, 2)
+  requiredSkills  Json?
+  eligibility     String?       @db.Text
+  applications    Application[]
 
-model EventRole {
-  id                String        @id @default(cuid())
-  title             String
-  slots             Int
-  skills            String        @default("")
-  pay               Int           @default(0) // INR per person, 0 = unpaid volunteer
-  hours             Float         @default(0) // shift length in hours
-  description       String        @default("")
-  wageType          String        @default("HOURLY") // HOURLY | DAILY
-  experienceReq     String        @default("None") // None | Beginner (1yr) | Intermediate (2+ yrs) | Expert
-  locationSpecific  String        @default("")
-  closingAt         DateTime?
-  selectionMethod   String        @default("FIRST_COME") // FIRST_COME | AUTOMATIC | MANUAL
-  isUrgentVacancy   Boolean       @default(false)
-  urgentBroadcastAt DateTime?
-  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId           String
-  applications      Application[]
-  backupWorkers     BackupRegistration[]
+  @@index([eventId])
 }
 
 model Application {
-  id                 String    @id @default(cuid())
-  role               EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  roleId             String
-  user               User      @relation(fields: [userId], references: [id])
-  userId             String
-  status             String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED | WAITLISTED | OFFERED | WITHDRAWN
-  checkIn            DateTime?
-  checkOut           DateTime?
-  paid               Boolean   @default(false)
-  absent             Boolean   @default(false) // marked absent by the organizer, or automatically after the event
-  absentCounted      Boolean   @default(false) // this absence was already added to the volunteer's absence count
-  refunded           Boolean   @default(false) // absent / no check-out: this role's pay was refunded to the organizer
-  rating             Int?
-  payout             Int       @default(0) // amount admin paid this volunteer (INR)
-  paidAt             DateTime?
-  paymentRequestedAt DateTime?
-  
-  // Waiting List & Replacement System
-  waitlistPosition   Int?
-  isBackup           Boolean   @default(false)
-  offerExpiresAt     DateTime?
-  
-  // Cancellation Tracking
-  cancelledAt        DateTime?
-  cancellationReason String    @default("")
-  cancelledBy        String?   // WORKER | ORGANIZER | SYSTEM
-  isEmergency        Boolean   @default(false)
-  
-  // Selection Scoring
-  matchScore         Float?
-
-  // Extended Payment Status: PENDING | APPROVED | PROCESSING | PAID | FAILED | DISPUTED
-  paymentStatus      String    @default("PENDING")
-
-  @@unique([roleId, userId])
-  @@index([roleId, status, waitlistPosition])
-}
-
-model WorkerAvailability {
-  id        String   @id @default(cuid())
-  worker    User     @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  workerId  String
-  date      DateTime
-  startTime String   @default("09:00")
-  endTime   String   @default("18:00")
-  isAllDay  Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([workerId, date])
-}
-
-model BackupRegistration {
-  id               String    @id @default(cuid())
-  role             EventRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  roleId           String
-  worker           User      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  id               String             @id @default(cuid())
+  eventId          String
+  eventJobId       String
   workerId         String
-  standbyStart     DateTime
-  standbyEnd       DateTime
-  standbyAllowance Int       @default(0)
-  status           String    @default("ACTIVE") // ACTIVE | CLAIMED | RELEASED
-  createdAt        DateTime  @default(now())
+  event            Event              @relation(fields: [eventId], references: [id])
+  eventJob         EventJob           @relation(fields: [eventJobId], references: [id])
+  worker           User               @relation(fields: [workerId], references: [id])
+  status           ApplicationStatus
+  waitlistPosition Int?
+  isSubstitute     Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  cancelledAt      DateTime?
+  offers           ReplacementOffer[]
+  attendance       Attendance?
+  payment          WorkerPayment?
 
-  @@unique([roleId, workerId])
+  // One role per worker per event: prevents duplicates and double-booking
+  @@unique([workerId, eventId])
+  @@index([eventJobId, status, createdAt])
+}
+
+model ReplacementOffer {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        OfferStatus @default(PENDING)
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  respondedAt   DateTime?
+
+  @@index([status, expiresAt])
+  @@index([applicationId])
+}
+
+model Attendance {
+  id            String           @id @default(cuid())
+  applicationId String           @unique
+  application   Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        AttendanceStatus
+  checkInAt     DateTime?
+  checkOutAt    DateTime?
+  note          String?
+}
+
+model WorkerPayment {
+  id                String        @id @default(cuid())
+  applicationId     String        @unique
+  application       Application   @relation(fields: [applicationId], references: [id])
+  amount            Decimal       @db.Decimal(10, 2)
+  status            PaymentStatus @default(PENDING)
+  upiReference      String?
+  paidAt            DateTime?
+  confirmedAt       DateTime?
+  deadlineAt        DateTime?
+  remindedAt        DateTime?
+  overdueNotifiedAt DateTime?
+  disputeNote       String?
+  createdAt         DateTime      @default(now())
+
+  @@index([status, deadlineAt])
+}
+
+model PlatformFee {
+  id         String    @id @default(cuid())
+  eventId    String    @unique
+  event      Event     @relation(fields: [eventId], references: [id])
+  baseAmount Decimal   @db.Decimal(10, 2)
+  rate       Decimal   @default(0.10) @db.Decimal(5, 4)
+  feeAmount  Decimal   @db.Decimal(10, 2)
+  status     FeeStatus @default(PENDING)
+  receiptRef String?
+  paidAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model SupportTicket {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation("TicketOwner", fields: [userId], references: [id])
+  assigneeId String?
+  assignee   User?        @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  subject    String
+  message    String       @db.Text
+  status     TicketStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status])
 }
 
 model Report {
-  id         String   @id @default(cuid())
-  reporterId String
-  targetType String
-  targetId   String
-  reason     String
-  status     String   @default("OPEN")
-  createdAt  DateTime @default(now())
+  id             String       @id @default(cuid())
+  reporterId     String
+  reporter       User         @relation("Reporter", fields: [reporterId], references: [id])
+  reportedUserId String?
+  reportedUser   User?        @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  eventId        String?
+  event          Event?       @relation(fields: [eventId], references: [id])
+  reason         String       @db.Text
+  status         ReportStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+
+  @@index([status])
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
-  actorId   String
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
   action    String
+  entity    String
+  entityId  String?
+  meta      Json?
   createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entity, entityId])
 }
-
-model Transaction {
-  id            String    @id @default(cuid())
-  type          String    // ORGANIZER_EVENT_PAYMENT | VOLUNTEER_PAYOUT | REFUND
-  amount        Int       // in INR
-  currency      String    @default("INR")
-  fromUserId    String?
-  toUserId      String?
-  eventId       String?
-  applicationId String?
-  reference     String    @default("") // UTR or UPI transaction reference
-  paymentMethod String    @default("UPI") // UPI | BANK_TRANSFER
-  upiId         String    @default("")
-  upiNumber     String    @default("")
-  status        String    @default("SUCCESS") // SUCCESS | PENDING | FAILED
-  note          String    @default("")
-  createdAt     DateTime  @default(now())
-
-  fromUser      User?     @relation("SentTransactions", fields: [fromUserId], references: [id])
-  toUser        User?     @relation("ReceivedTransactions", fields: [toUserId], references: [id])
-  event         Event?    @relation(fields: [eventId], references: [id])
-}
-
-model SupportQuery {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject    String
-  category   String    @default("QUERY") // QUERY | COMPLAINT | PAYMENT | URGENT
-  message    String
-  answer     String?
-  answeredAt DateTime?
-  status     String    @default("OPEN") // OPEN | ANSWERED | RESOLVED
-  createdAt  DateTime  @default(now())
-}
-
